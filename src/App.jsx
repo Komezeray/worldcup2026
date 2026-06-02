@@ -931,6 +931,10 @@ function MacTahminlerim() {
     { label: "Yarı Final", value: "Yarı Final" },
     { label: "Üçüncülük", value: "Üçüncülük" },
     { label: "Final", value: "Final" },
+
+    { label: "Grup Liderleri", value: "groupleaders" },
+    { label: "Şampiyon", value: "champion" },
+    { label: "Türkiye", value: "turkiye" },
   ];
 
   return (
@@ -1009,8 +1013,15 @@ function KatilimciTahminleri() {
   const [dbOdds, setDbOdds] = useState([]);
   const [dbScores, setDbScores] = useState([]);
 
+  const [groupPredictions, setGroupPredictions] = useState([]);
+  const [championPredictions, setChampionPredictions] = useState([]);
+  const [turkeyPredictions, setTurkeyPredictions] = useState([]);
+
   const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
   const allMatches = [...matches, ...customMatches];
+
+  const longTermRevealTime = new Date("2026-06-11T19:15:00");
+  const showLongTermPredictions = new Date() >= longTermRevealTime;
 
   useEffect(() => {
     fetchData();
@@ -1022,15 +1033,28 @@ function KatilimciTahminleri() {
       .select("*");
 
     const { data: userData } = await supabase.from("users").select("*");
-
     const { data: oddsData } = await supabase.from("match_odds").select("*");
-
     const { data: scoreData } = await supabase.from("match_scores").select("*");
+
+    const { data: groupPredictionData } = await supabase
+      .from("group_predictions")
+      .select("*");
+
+    const { data: championPredictionData } = await supabase
+      .from("champion_predictions")
+      .select("*");
+
+    const { data: turkeyPredictionData } = await supabase
+      .from("turkey_predictions")
+      .select("*");
 
     setAllPredictions(predictionData || []);
     setUsers(userData || []);
     setDbOdds(oddsData || []);
     setDbScores(scoreData || []);
+    setGroupPredictions(groupPredictionData || []);
+    setChampionPredictions(championPredictionData || []);
+    setTurkeyPredictions(turkeyPredictionData || []);
   };
 
   const isMatchPredictionVisible = (match) => {
@@ -1044,8 +1068,7 @@ function KatilimciTahminleri() {
   const getPrediction = (username, matchId) => {
     return allPredictions.find(
       (p) =>
-        p.user_name === username &&
-        Number(p.match_id) === Number(matchId)
+        p.user_name === username && Number(p.match_id) === Number(matchId)
     );
   };
 
@@ -1112,6 +1135,32 @@ function KatilimciTahminleri() {
     return prediction.ou === realOU ? "text-emerald-400" : "text-red-400";
   };
 
+  const getUserGroupPredictionsText = (username) => {
+    const userGroups = groupPredictions
+      .filter((p) => p.user_name === username)
+      .sort((a, b) => a.group_name.localeCompare(b.group_name));
+
+    if (userGroups.length === 0) return "-";
+
+    return userGroups
+      .map((item) => `Grup ${item.group_name}: ${item.team_name}`)
+      .join(" | ");
+  };
+
+  const getUserChampionPrediction = (username) => {
+    const prediction = championPredictions.find(
+      (p) => p.user_name === username
+    );
+
+    return prediction?.team_name || "-";
+  };
+
+  const getUserTurkeyPrediction = (username) => {
+    const prediction = turkeyPredictions.find((p) => p.user_name === username);
+
+    return prediction?.result_name || "-";
+  };
+
   const filters = [
     { label: "Tümü", value: "all" },
     { label: "1. Maçlar", value: 1 },
@@ -1124,7 +1173,90 @@ function KatilimciTahminleri() {
     { label: "Üçüncülük", value: "Üçüncülük" },
     { label: "Final", value: "Final" },
   ];
+if (
+  filter === "groupleaders" ||
+  filter === "champion" ||
+  filter === "turkiye"
+) {
+  return (
+    <div className="space-y-5">
+      <h2 className="text-2xl font-bold">Katılımcı Tahminleri</h2>
 
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {filters.map((item) => (
+          <button
+            key={item.label}
+            onClick={() => setFilter(item.value)}
+            className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
+              filter === item.value
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-800 text-slate-300 border border-slate-700"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {!showLongTermPredictions ? (
+        <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5 text-slate-400">
+          Uzun vadeli tahminler 11.06.2026 19:15'ten sonra herkese açılır.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-slate-700">
+          <table className="w-full bg-[#0f172a]">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="p-4 text-left">Katılımcı</th>
+
+                {filter === "groupleaders" && (
+                  <th className="p-4 text-left">Grup Liderleri</th>
+                )}
+
+                {filter === "champion" && (
+                  <th className="p-4 text-left">Şampiyon</th>
+                )}
+
+                {filter === "turkiye" && (
+                  <th className="p-4 text-left">Türkiye</th>
+                )}
+              </tr>
+            </thead>
+
+            <tbody>
+              {users.map((user) => (
+                <tr
+                  key={user.username}
+                  className="border-b border-slate-800"
+                >
+                  <td className="p-4 font-bold">{user.username}</td>
+
+                  {filter === "groupleaders" && (
+                    <td className="p-4">
+                      {getUserGroupPredictionsText(user.username)}
+                    </td>
+                  )}
+
+                  {filter === "champion" && (
+                    <td className="p-4">
+                      {getUserChampionPrediction(user.username)}
+                    </td>
+                  )}
+
+                  {filter === "turkiye" && (
+                    <td className="p-4">
+                      {getUserTurkeyPrediction(user.username)}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
   const filteredMatches = allMatches
     .filter((match) => {
       if (filter === "all") return true;
@@ -1143,7 +1275,6 @@ function KatilimciTahminleri() {
     });
 
   const chunkSize = filter === "all" || typeof filter === "number" ? 2 : 1;
-
   const matchChunks = [];
 
   for (let i = 0; i < filteredMatches.length; i += chunkSize) {
@@ -1261,6 +1392,50 @@ function KatilimciTahminleri() {
             </table>
           </div>
         ))
+      )}
+
+      {showLongTermPredictions ? (
+        <div className="overflow-x-auto rounded-2xl border border-slate-700">
+          <h3 className="text-xl font-bold p-4">Uzun Vadeli Tahminler</h3>
+
+          <table className="w-full min-w-[1100px] bg-[#0f172a]">
+            <thead>
+              <tr className="border-b border-slate-700 text-slate-300">
+                <th className="text-left p-4">Katılımcı</th>
+                <th className="text-left p-4">Grup Liderleri</th>
+                <th className="text-left p-4">Şampiyon</th>
+                <th className="text-left p-4">Türkiye</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {users.map((user) => (
+                <tr
+                  key={user.username}
+                  className="border-b border-slate-800"
+                >
+                  <td className="p-4 font-bold">{user.username}</td>
+
+                  <td className="p-4 text-sm text-slate-300">
+                    {getUserGroupPredictionsText(user.username)}
+                  </td>
+
+                  <td className="p-4 text-emerald-400 font-bold">
+                    {getUserChampionPrediction(user.username)}
+                  </td>
+
+                  <td className="p-4 text-yellow-400 font-bold">
+                    {getUserTurkeyPrediction(user.username)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5 text-slate-400">
+          Uzun vadeli tahminler 11.06.2026 19:15’ten sonra herkese açılır.
+        </div>
       )}
 
       <p className="text-sm text-slate-400 italic">
