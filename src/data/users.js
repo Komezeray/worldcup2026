@@ -1,0 +1,18 @@
+export const defaultUsers = [
+  "KomezEray",
+  "DemirelMurat",
+  "BaykonduOnur",
+  "ŞahinOnur",
+  "YılmazOnur",
+  "TemelMetin",
+  "DoganAlper",
+  "TufanAlperen",
+  "IrmakOgun",
+  "GünaydınMustafa",
+  "CanpolatCangündüz",
+  "GurisikOnur",
+  "IkizogluSertac",
+  "Eyisanİbrahim",
+  "OzmenBugra",
+  "PekinKadir",
+];
