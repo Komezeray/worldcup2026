@@ -1271,15 +1271,33 @@ function KatilimciTahminleri() {
 }
 function GrupLiderleri() {
   const loggedInUser = localStorage.getItem("loggedInUser");
-  const groupOdds = JSON.parse(localStorage.getItem("groupOdds")) || {};
   const deadline = new Date("2026-06-11T19:00:00");
   const closed = new Date() >= deadline;
 
   const [myGroupPredictions, setMyGroupPredictions] = useState({});
+  const [groupOdds, setGroupOdds] = useState({});
 
   useEffect(() => {
     fetchMyGroupPredictions();
+    fetchGroupOdds();
   }, []);
+
+  const fetchGroupOdds = async () => {
+    const { data, error } = await supabase.from("group_odds").select("*");
+
+    if (error) {
+      console.log("Grup oranları alınamadı:", error);
+      return;
+    }
+
+    const oddsObj = {};
+
+    (data || []).forEach((item) => {
+      oddsObj[`${item.group_name}-${item.team_name}`] = item.odd;
+    });
+
+    setGroupOdds(oddsObj);
+  };
 
   const fetchMyGroupPredictions = async () => {
     const { data, error } = await supabase
@@ -1331,9 +1349,7 @@ function GrupLiderleri() {
       );
 
       if (rows.length > 0) {
-        const { error } = await supabase
-          .from("group_predictions")
-          .insert(rows);
+        const { error } = await supabase.from("group_predictions").insert(rows);
 
         if (error) {
           console.log(error);
@@ -1342,7 +1358,7 @@ function GrupLiderleri() {
         }
       }
 
-      alert("Grup birinciliği tahminlerin Supabase'e kaydedildi.");
+      alert("Grup birinciliği tahminlerin kaydedildi.");
     } catch (err) {
       console.log(err);
       alert("Grup tahminleri kaydedilirken hata oluştu.");
@@ -1418,15 +1434,33 @@ function GrupLiderleri() {
 }
 function Sampiyon() {
   const loggedInUser = localStorage.getItem("loggedInUser");
-  const championOdds = JSON.parse(localStorage.getItem("championOdds")) || {};
   const deadline = new Date("2026-06-11T19:00:00");
   const closed = new Date() >= deadline;
 
   const [myChampion, setMyChampion] = useState("");
+  const [championOdds, setChampionOdds] = useState({});
 
   useEffect(() => {
     fetchMyChampionPrediction();
+    fetchChampionOdds();
   }, []);
+
+  const fetchChampionOdds = async () => {
+    const { data, error } = await supabase.from("champion_odds").select("*");
+
+    if (error) {
+      console.log("Şampiyonluk oranları alınamadı:", error);
+      return;
+    }
+
+    const oddsObj = {};
+
+    (data || []).forEach((item) => {
+      oddsObj[item.team_name] = item.odd;
+    });
+
+    setChampionOdds(oddsObj);
+  };
 
   const fetchMyChampionPrediction = async () => {
     const { data, error } = await supabase
@@ -1467,12 +1501,10 @@ function Sampiyon() {
         .delete()
         .eq("user_name", loggedInUser);
 
-      const { error } = await supabase
-        .from("champion_predictions")
-        .insert({
-          user_name: loggedInUser,
-          team_name: myChampion,
-        });
+      const { error } = await supabase.from("champion_predictions").insert({
+        user_name: loggedInUser,
+        team_name: myChampion,
+      });
 
       if (error) {
         console.log(error);
@@ -1480,7 +1512,7 @@ function Sampiyon() {
         return;
       }
 
-      alert("Şampiyonluk tahminin Supabase'e kaydedildi.");
+      alert("Şampiyonluk tahminin kaydedildi.");
     } catch (err) {
       console.log(err);
       alert("Şampiyonluk tahmini kaydedilirken hata oluştu.");
