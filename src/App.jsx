@@ -871,6 +871,9 @@ function MacTahminlerim() {
   const loggedInUser = localStorage.getItem("loggedInUser");
 
   const [tab, setTab] = useState("matches");
+  const [stageFilter, setStageFilter] = useState("A");
+  const [matchdayFilter, setMatchdayFilter] = useState(1);
+
   const [myPredictions, setMyPredictions] = useState([]);
   const [dbOdds, setDbOdds] = useState([]);
 
@@ -883,9 +886,7 @@ function MacTahminlerim() {
   const [myTurkeyPrediction, setMyTurkeyPrediction] = useState(null);
   const [turkeyOdds, setTurkeyOdds] = useState([]);
 
-  const customMatches =
-    JSON.parse(localStorage.getItem("customMatches")) || [];
-
+  const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
   const allMatches = [...matches, ...customMatches];
 
   useEffect(() => {
@@ -932,19 +933,18 @@ function MacTahminlerim() {
 
     setMyPredictions(predictionData || []);
     setDbOdds(oddsData || []);
-
     setMyGroupPredictions(groupPredictionData || []);
     setGroupOdds(groupOddsData || []);
-
     setMyChampion(championPredictionData?.[0] || null);
     setChampionOdds(championOddsData || []);
-
     setMyTurkeyPrediction(turkeyPredictionData?.[0] || null);
     setTurkeyOdds(turkeyOddsData || []);
   };
 
-  const getMatch = (matchId) => {
-    return allMatches.find((m) => Number(m.id) === Number(matchId));
+  const getPrediction = (matchId) => {
+    return myPredictions.find(
+      (p) => Number(p.match_id) === Number(matchId)
+    );
   };
 
   const getMatchOdds = (matchId) => {
@@ -953,20 +953,16 @@ function MacTahminlerim() {
 
   const getSelectedMsOdd = (prediction, odds) => {
     if (!prediction || !odds) return "-";
-
     if (Number(prediction.ms) === 1) return odds.ms1 || "-";
     if (Number(prediction.ms) === 0) return odds.ms0 || "-";
     if (Number(prediction.ms) === 2) return odds.ms2 || "-";
-
     return "-";
   };
 
   const getSelectedOuOdd = (prediction, odds) => {
     if (!prediction || !odds) return "-";
-
     if (prediction.ou === "Alt") return odds.under || "-";
     if (prediction.ou === "Üst") return odds.over || "-";
-
     return "-";
   };
 
@@ -999,7 +995,7 @@ function MacTahminlerim() {
     { label: "Türkiye", value: "turkiye" },
   ];
 
-  const groupNames = [
+  const groupStageFilters = [
     "A",
     "B",
     "C",
@@ -1014,8 +1010,51 @@ function MacTahminlerim() {
     "L",
   ];
 
+  const knockoutFilters = [
+    "Son 32",
+    "Son 16",
+    "Çeyrek Final",
+    "Yarı Final",
+    "Üçüncülük",
+    "Final",
+  ];
+
+  const matchdayFilters = [
+    { label: "1. Maçlar", value: 1 },
+    { label: "2. Maçlar", value: 2 },
+    { label: "3. Maçlar", value: 3 },
+  ];
+
+  const activeClass = "bg-emerald-600 text-white";
+  const passiveClass = "bg-slate-800 text-slate-300 border border-slate-700";
+
+  const filteredMatches = allMatches
+    .filter((match) => {
+      if (groupStageFilters.includes(stageFilter)) {
+        return (
+          match.stage === "Grup" &&
+          match.group === stageFilter &&
+          Number(match.matchday) === Number(matchdayFilter)
+        );
+      }
+
+      return match.stage === stageFilter;
+    })
+    .sort((a, b) => {
+      const da = `${a.dateOrder || a.date_order} ${a.time}`;
+      const db = `${b.dateOrder || b.date_order} ${b.time}`;
+      return da.localeCompare(db);
+    });
+
+  const chunkSize = groupStageFilters.includes(stageFilter) ? 2 : 1;
+  const matchChunks = [];
+
+  for (let i = 0; i < filteredMatches.length; i += chunkSize) {
+    matchChunks.push(filteredMatches.slice(i, i + chunkSize));
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <h2 className="text-2xl font-bold">Maç Tahminlerim</h2>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -1024,9 +1063,7 @@ function MacTahminlerim() {
             key={item.value}
             onClick={() => setTab(item.value)}
             className={`min-w-fit rounded-xl px-4 py-2 font-bold transition ${
-              tab === item.value
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-800 text-slate-300 border border-slate-700"
+              tab === item.value ? activeClass : passiveClass
             }`}
           >
             {item.label}
@@ -1036,57 +1073,139 @@ function MacTahminlerim() {
 
       {tab === "matches" && (
         <>
-          {myPredictions.length === 0 ? (
-            <div className="text-slate-400">Maç tahmini bulunamadı.</div>
-          ) : (
-            <div className="space-y-3">
-              {myPredictions.map((prediction) => {
-                const match = getMatch(prediction.match_id);
-                const odds = getMatchOdds(prediction.match_id) || {};
+          <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-4 space-y-4">
+            <div>
+              <div className="text-slate-400 font-bold mb-3">
+                🔽 GRUP / TUR SEÇİMİ:
+              </div>
 
-                const msText =
-                  Number(prediction.ms) === 0 ? "X" : prediction.ms;
-
-                const msOdd = getSelectedMsOdd(prediction, odds);
-                const ouOdd = getSelectedOuOdd(prediction, odds);
-
-                return (
-                  <div
-                    key={prediction.id}
-                    className="rounded-2xl bg-slate-800 p-5 border border-slate-700"
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {groupStageFilters.map((groupName) => (
+                  <button
+                    key={groupName}
+                    onClick={() => setStageFilter(groupName)}
+                    className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
+                      stageFilter === groupName ? activeClass : passiveClass
+                    }`}
                   >
-                    <div className="text-sm text-slate-400 mb-2">
-                      {match
-                        ? `${match.date} - ${match.time}`
-                        : `Maç ID: ${prediction.match_id}`}
-                    </div>
+                    Grup {groupName}
+                  </button>
+                ))}
 
-                    <div className="text-lg font-bold mb-4">
-                      {match
-                        ? `${match.home} - ${match.away}`
-                        : "Maç bulunamadı"}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <span className="bg-emerald-600 px-3 py-1 rounded-lg text-sm font-bold">
-                        MS: {msText} ({msOdd})
-                      </span>
-
-                      <span className="bg-emerald-600 px-3 py-1 rounded-lg text-sm font-bold">
-                        {prediction.ou} ({ouOdd})
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                {knockoutFilters.map((stage) => (
+                  <button
+                    key={stage}
+                    onClick={() => setStageFilter(stage)}
+                    className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
+                      stageFilter === stage ? activeClass : passiveClass
+                    }`}
+                  >
+                    {stage}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {groupStageFilters.includes(stageFilter) && (
+              <div>
+                <div className="text-slate-400 font-bold mb-3">
+                  🗓️ HAFTA / MAÇ AŞAMASI:
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {matchdayFilters.map((item) => (
+                    <button
+                      key={item.value}
+                      onClick={() => setMatchdayFilter(item.value)}
+                      className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
+                        matchdayFilter === item.value
+                          ? activeClass
+                          : passiveClass
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {matchChunks.length === 0 ? (
+            <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5 text-slate-400">
+              Bu filtrede maç bulunamadı.
+            </div>
+          ) : (
+            matchChunks.map((chunk, index) => (
+              <div
+                key={index}
+                className="overflow-x-auto rounded-2xl border border-slate-700"
+              >
+                <table className="w-full min-w-[900px] bg-[#0f172a]">
+                  <thead>
+                    <tr className="border-b border-slate-700">
+                      {chunk.map((match) => (
+                        <th
+                          key={match.id}
+                          colSpan="2"
+                          className="p-4 text-center font-bold"
+                        >
+                          {match.home} - {match.away}
+                        </th>
+                      ))}
+                    </tr>
+
+                    <tr className="border-b border-slate-700">
+                      {chunk.map((match) => (
+                        <React.Fragment key={match.id}>
+                          <th className="p-3 text-emerald-400">MS</th>
+                          <th className="p-3 text-yellow-400">A/Ü</th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    <tr className="border-b border-slate-800">
+                      {chunk.map((match) => {
+                        const prediction = getPrediction(match.id);
+                        const odds = getMatchOdds(match.id);
+
+                        const msText = prediction
+                          ? Number(prediction.ms) === 0
+                            ? "X"
+                            : prediction.ms
+                          : "-";
+
+                        const msOdd = getSelectedMsOdd(prediction, odds);
+                        const ouOdd = getSelectedOuOdd(prediction, odds);
+
+                        return (
+                          <React.Fragment key={match.id}>
+                            <td className="p-4 text-center text-emerald-400 font-bold">
+                              {prediction ? `${msText} (${msOdd})` : "-"}
+                            </td>
+
+                            <td className="p-4 text-center text-yellow-400 font-bold">
+                              {prediction
+                                ? `${prediction.ou} (${ouOdd})`
+                                : "-"}
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ))
           )}
         </>
       )}
 
       {tab === "groupleaders" && (
         <div className="overflow-x-auto rounded-2xl border border-slate-700">
-          <table className="w-full min-w-[900px] bg-[#0f172a]">
+          <table className="w-full min-w-[520px] bg-[#0f172a]">
             <thead>
               <tr className="border-b border-slate-700">
                 <th className="p-4 text-left text-slate-300">Grup</th>
@@ -1096,18 +1215,24 @@ function MacTahminlerim() {
             </thead>
 
             <tbody>
-              {groupNames.map((groupName) => {
+              {groupStageFilters.map((groupName) => {
                 const prediction = getGroupPrediction(groupName);
                 const team = prediction?.team_name;
                 const odd = team ? getGroupOdd(groupName, team) : "-";
 
                 return (
                   <tr key={groupName} className="border-b border-slate-800">
-                    <td className="p-4 font-bold">Grup {groupName}</td>
-                    <td className="p-4 text-emerald-400 font-bold">
+                    <td className="p-4 font-bold whitespace-nowrap">
+                      Grup {groupName}
+                    </td>
+
+                    <td className="p-4 text-emerald-400 font-bold whitespace-nowrap">
                       {team || "-"}
                     </td>
-                    <td className="p-4 text-slate-300 font-bold">{odd}</td>
+
+                    <td className="p-4 text-slate-300 font-bold whitespace-nowrap">
+                      {odd}
+                    </td>
                   </tr>
                 );
               })}
@@ -1121,7 +1246,7 @@ function MacTahminlerim() {
           <h3 className="text-xl font-bold mb-4">Şampiyon Tahminim</h3>
 
           {myChampion?.team_name ? (
-            <div className="flex items-center justify-between rounded-xl bg-slate-800 border border-slate-700 p-4">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-800 border border-slate-700 p-4">
               <span className="font-bold">{myChampion.team_name}</span>
               <span className="text-emerald-400 font-extrabold">
                 {getChampionOdd(myChampion.team_name)}
@@ -1138,8 +1263,10 @@ function MacTahminlerim() {
           <h3 className="text-xl font-bold mb-4">Türkiye Tahminim</h3>
 
           {myTurkeyPrediction?.result_name ? (
-            <div className="flex items-center justify-between rounded-xl bg-slate-800 border border-slate-700 p-4">
-              <span className="font-bold">{myTurkeyPrediction.result_name}</span>
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-800 border border-slate-700 p-4">
+              <span className="font-bold">
+                {myTurkeyPrediction.result_name}
+              </span>
               <span className="text-emerald-400 font-extrabold">
                 {getTurkeyOdd(myTurkeyPrediction.result_name)}
               </span>
