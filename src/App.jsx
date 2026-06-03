@@ -95,6 +95,61 @@ const handleLogin = async () => {
 function Layout({ loggedInUser, onLogout, onChangePassword }) {
   const isAdmin = loggedInUser === "KomezEray";
 
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordAgain, setNewPasswordAgain] = useState("");
+
+  const changePassword = async () => {
+    if (!oldPassword || !newPassword || !newPasswordAgain) {
+      alert("Lütfen tüm alanları doldur.");
+      return;
+    }
+
+    if (newPassword !== newPasswordAgain) {
+      alert("Yeni şifreler aynı değil.");
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      alert("Yeni şifre en az 4 karakter olmalı.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("username", loggedInUser)
+      .single();
+
+    if (error || !data) {
+      alert("Kullanıcı bulunamadı.");
+      return;
+    }
+
+    if (data.password !== oldPassword) {
+      alert("Eski şifre yanlış.");
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ password: newPassword })
+      .eq("username", loggedInUser);
+
+    if (updateError) {
+      alert("Şifre değiştirilemedi.");
+      return;
+    }
+
+    alert("Şifre başarıyla değiştirildi.");
+
+    setOldPassword("");
+    setNewPassword("");
+    setNewPasswordAgain("");
+    setShowPasswordModal(false);
+  };
+
   const menus = [
     { name: "Sıralama", path: "/" },
     { name: "Maç Bülteni", path: "/mac-bulteni" },
@@ -122,7 +177,7 @@ function Layout({ loggedInUser, onLogout, onChangePassword }) {
             <div className="font-bold mb-2">{loggedInUser}</div>
 
             <button
-              onClick={onChangePassword}
+              onClick={() => setShowPasswordModal(true)}
               className="block w-full text-xs text-emerald-400 underline mb-1"
             >
               Şifre Değiştir
@@ -173,6 +228,54 @@ function Layout({ loggedInUser, onLogout, onChangePassword }) {
           </Routes>
         </section>
       </main>
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-slate-700 p-6 space-y-4">
+            <h2 className="text-xl font-bold">Şifre Değiştir</h2>
+
+            <input
+              type="password"
+              placeholder="Eski şifre"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none"
+            />
+
+            <input
+              type="password"
+              placeholder="Yeni şifre"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none"
+            />
+
+            <input
+              type="password"
+              placeholder="Yeni şifre tekrar"
+              value={newPasswordAgain}
+              onChange={(e) => setNewPasswordAgain(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={changePassword}
+                className="flex-1 bg-emerald-600 rounded-xl py-3 font-bold"
+              >
+                Kaydet
+              </button>
+
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="flex-1 bg-slate-700 rounded-xl py-3 font-bold"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
