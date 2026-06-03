@@ -500,38 +500,52 @@ function Siralama() {
     <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-4 overflow-x-auto">
       <h2 className="text-xl font-bold mb-5">Sıralama</h2>
 
-      <table className="w-full min-w-[1050px]">
+      <table className="w-full min-w-[760px] text-sm sm:text-base">
         <thead>
           <tr className="text-slate-400 border-b border-slate-700">
             <th className="text-left py-3">Sıra</th>
             <th className="text-left py-3">Kullanıcı</th>
+            <th className="text-left py-3">Toplam</th>
+            <th className="text-left py-3">Başarı %</th>
+            <th className="text-left py-3">Doğru Tahmin</th>
             <th className="text-left py-3">Maç</th>
             <th className="text-left py-3">Grup</th>
             <th className="text-left py-3">Şampiyon</th>
             <th className="text-left py-3">Türkiye</th>
-            <th className="text-left py-3">Toplam</th>
-            <th className="text-left py-3">Başarı %</th>
-            <th className="text-left py-3">Doğru Tahmin</th>
           </tr>
         </thead>
 
         <tbody>
-          {tableUsers.map((user) => (
-            <tr key={user.name} className="border-b border-slate-800">
-              <td className="py-4">{user.rank}</td>
-              <td className="py-4 font-semibold">{user.name}</td>
-              <td className="py-4 text-slate-300 font-bold">{user.matchPoints}</td>
-              <td className="py-4 text-slate-300 font-bold">{user.groupPoints}</td>
-              <td className="py-4 text-slate-300 font-bold">{user.championPoints}</td>
-              <td className="py-4 text-slate-300 font-bold">{user.turkeyPoints}</td>
-              <td className="py-4 text-emerald-400 font-extrabold">
-                {user.totalPoints}
-              </td>
-              <td className="py-4">%{user.success}</td>
-              <td className="py-4">{user.correctText}</td>
-            </tr>
-          ))}
-        </tbody>
+  {tableUsers.map((user) => (
+    <tr key={user.name} className="border-b border-slate-800">
+      <td className="py-4 px-2">{user.rank}</td>
+      <td className="py-4 px-2 font-semibold">{user.name}</td>
+
+      <td className="py-4 px-2 text-emerald-400 font-extrabold">
+        {user.totalPoints}
+      </td>
+
+      <td className="py-4 px-2">%{user.success}</td>
+      <td className="py-4 px-2">{user.correctText}</td>
+
+      <td className="py-4 px-2 text-slate-300 font-bold">
+        {user.matchPoints}
+      </td>
+
+      <td className="py-4 px-2 text-slate-300 font-bold">
+        {user.groupPoints}
+      </td>
+
+      <td className="py-4 px-2 text-slate-300 font-bold">
+        {user.championPoints}
+      </td>
+
+      <td className="py-4 px-2 text-slate-300 font-bold">
+        {user.turkeyPoints}
+      </td>
+    </tr>
+  ))}
+</tbody>
       </table>
     </div>
   );
