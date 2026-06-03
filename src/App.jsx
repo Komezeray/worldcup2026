@@ -482,7 +482,10 @@ function Siralama() {
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
         totalPoints: Number(totalPoints.toFixed(2)),
         success: total === 0 ? 0 : Number(((correct / total) * 100).toFixed(2)),
-        correctText: `${correct}/${total}`,
+        correctText:
+  total === 0
+    ? "0/0"
+    : `${correct}/${total}`,
       };
     });
 
@@ -1205,14 +1208,14 @@ function MacTahminlerim() {
 
       {tab === "groupleaders" && (
         <div className="overflow-x-auto rounded-2xl border border-slate-700">
-          <table className="w-full min-w-[520px] bg-[#0f172a]">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="p-4 text-left text-slate-300">Grup</th>
-                <th className="p-4 text-left text-slate-300">Tahminim</th>
-                <th className="p-4 text-left text-slate-300">Oran</th>
-              </tr>
-            </thead>
+          <table className="w-full table-fixed bg-[#0f172a]">
+<thead>
+  <tr className="border-b border-slate-700">
+    <th className="w-[26%] p-3 text-left text-slate-300">Grup</th>
+    <th className="w-[48%] p-3 text-left text-slate-300">Tahminim</th>
+    <th className="w-[26%] p-3 text-left text-slate-300">Oran</th>
+  </tr>
+</thead>
 
             <tbody>
               {groupStageFilters.map((groupName) => {
@@ -1222,17 +1225,17 @@ function MacTahminlerim() {
 
                 return (
                   <tr key={groupName} className="border-b border-slate-800">
-                    <td className="p-4 font-bold whitespace-nowrap">
-                      Grup {groupName}
-                    </td>
+<td className="p-3 font-bold whitespace-nowrap">
+  Grup {groupName}
+</td>
 
-                    <td className="p-4 text-emerald-400 font-bold whitespace-nowrap">
-                      {team || "-"}
-                    </td>
+<td className="p-3 text-emerald-400 font-bold whitespace-nowrap">
+  {team || "-"}
+</td>
 
-                    <td className="p-4 text-slate-300 font-bold whitespace-nowrap">
-                      {odd}
-                    </td>
+<td className="p-3 text-slate-300 font-bold whitespace-nowrap">
+  {odd}
+</td>
                   </tr>
                 );
               })}
@@ -1301,7 +1304,7 @@ function KatilimciTahminleri() {
   const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
   const allMatches = [...matches, ...customMatches];
 
-  const longTermRevealTime = new Date("2026-06-11T19:15:00");
+  const longTermRevealTime = new Date("2025-01-01T00:00:00");
   const showLongTermPredictions = new Date() >= longTermRevealTime;
 
   useEffect(() => {
