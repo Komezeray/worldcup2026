@@ -868,9 +868,20 @@ function MacBulteni() {
 }
 
 function MacTahminlerim() {
+  const loggedInUser = localStorage.getItem("loggedInUser");
+
+  const [tab, setTab] = useState("matches");
   const [myPredictions, setMyPredictions] = useState([]);
-  const [filter, setFilter] = useState("all");
   const [dbOdds, setDbOdds] = useState([]);
+
+  const [myGroupPredictions, setMyGroupPredictions] = useState([]);
+  const [groupOdds, setGroupOdds] = useState([]);
+
+  const [myChampion, setMyChampion] = useState(null);
+  const [championOdds, setChampionOdds] = useState([]);
+
+  const [myTurkeyPrediction, setMyTurkeyPrediction] = useState(null);
+  const [turkeyOdds, setTurkeyOdds] = useState([]);
 
   const customMatches =
     JSON.parse(localStorage.getItem("customMatches")) || [];
@@ -878,37 +889,58 @@ function MacTahminlerim() {
   const allMatches = [...matches, ...customMatches];
 
   useEffect(() => {
-    fetchMyPredictions();
-    fetchDbOdds();
+    fetchData();
   }, []);
 
-  const fetchMyPredictions = async () => {
-    const loggedInUser = localStorage.getItem("loggedInUser");
-
-    const { data, error } = await supabase
+  const fetchData = async () => {
+    const { data: predictionData } = await supabase
       .from("predictions")
       .select("*")
       .eq("user_name", loggedInUser)
       .order("id", { ascending: false });
 
-    if (error) {
-      console.log(error);
-      alert("Tahminler alınamadı.");
-      return;
-    }
+    const { data: oddsData } = await supabase.from("match_odds").select("*");
 
-    setMyPredictions(data || []);
-  };
+    const { data: groupPredictionData } = await supabase
+      .from("group_predictions")
+      .select("*")
+      .eq("user_name", loggedInUser);
 
-  const fetchDbOdds = async () => {
-    const { data, error } = await supabase.from("match_odds").select("*");
+    const { data: groupOddsData } = await supabase
+      .from("group_odds")
+      .select("*");
 
-    if (error) {
-      console.log("Oranlar alınamadı:", error);
-      return;
-    }
+    const { data: championPredictionData } = await supabase
+      .from("champion_predictions")
+      .select("*")
+      .eq("user_name", loggedInUser)
+      .limit(1);
 
-    setDbOdds(data || []);
+    const { data: championOddsData } = await supabase
+      .from("champion_odds")
+      .select("*");
+
+    const { data: turkeyPredictionData } = await supabase
+      .from("turkey_predictions")
+      .select("*")
+      .eq("user_name", loggedInUser)
+      .limit(1);
+
+    const { data: turkeyOddsData } = await supabase
+      .from("turkey_odds")
+      .select("*");
+
+    setMyPredictions(predictionData || []);
+    setDbOdds(oddsData || []);
+
+    setMyGroupPredictions(groupPredictionData || []);
+    setGroupOdds(groupOddsData || []);
+
+    setMyChampion(championPredictionData?.[0] || null);
+    setChampionOdds(championOddsData || []);
+
+    setMyTurkeyPrediction(turkeyPredictionData?.[0] || null);
+    setTurkeyOdds(turkeyOddsData || []);
   };
 
   const getMatch = (matchId) => {
@@ -919,36 +951,67 @@ function MacTahminlerim() {
     return dbOdds.find((odd) => Number(odd.match_id) === Number(matchId));
   };
 
-  const filteredPredictions =
-    filter === "all"
-      ? myPredictions
-      : myPredictions.filter((prediction) => {
-          const match = getMatch(prediction.match_id);
+  const getSelectedMsOdd = (prediction, odds) => {
+    if (!prediction || !odds) return "-";
 
-          if (!match) return false;
+    if (Number(prediction.ms) === 1) return odds.ms1 || "-";
+    if (Number(prediction.ms) === 0) return odds.ms0 || "-";
+    if (Number(prediction.ms) === 2) return odds.ms2 || "-";
 
-          if (typeof filter === "number") {
-            return Number(match.matchday) === Number(filter);
-          }
+    return "-";
+  };
 
-          return match.stage === filter;
-        });
+  const getSelectedOuOdd = (prediction, odds) => {
+    if (!prediction || !odds) return "-";
 
-  const filters = [
-    { label: "Tümü", value: "all" },
-    { label: "1. Maçlar", value: 1 },
-    { label: "2. Maçlar", value: 2 },
-    { label: "3. Maçlar", value: 3 },
-    { label: "Son 32", value: "Son 32" },
-    { label: "Son 16", value: "Son 16" },
-    { label: "Çeyrek Final", value: "Çeyrek Final" },
-    { label: "Yarı Final", value: "Yarı Final" },
-    { label: "Üçüncülük", value: "Üçüncülük" },
-    { label: "Final", value: "Final" },
+    if (prediction.ou === "Alt") return odds.under || "-";
+    if (prediction.ou === "Üst") return odds.over || "-";
 
+    return "-";
+  };
+
+  const getGroupPrediction = (groupName) => {
+    return myGroupPredictions.find((p) => p.group_name === groupName);
+  };
+
+  const getGroupOdd = (groupName, teamName) => {
+    const odd = groupOdds.find(
+      (o) => o.group_name === groupName && o.team_name === teamName
+    );
+
+    return odd?.odd || "-";
+  };
+
+  const getChampionOdd = (teamName) => {
+    const odd = championOdds.find((o) => o.team_name === teamName);
+    return odd?.odd || "-";
+  };
+
+  const getTurkeyOdd = (resultName) => {
+    const odd = turkeyOdds.find((o) => o.result_name === resultName);
+    return odd?.odd || "-";
+  };
+
+  const tabs = [
+    { label: "Maçlar", value: "matches" },
     { label: "Grup Liderleri", value: "groupleaders" },
     { label: "Şampiyon", value: "champion" },
     { label: "Türkiye", value: "turkiye" },
+  ];
+
+  const groupNames = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
   ];
 
   return (
@@ -956,12 +1019,12 @@ function MacTahminlerim() {
       <h2 className="text-2xl font-bold">Maç Tahminlerim</h2>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {filters.map((item) => (
+        {tabs.map((item) => (
           <button
-            key={item.label}
-            onClick={() => setFilter(item.value)}
+            key={item.value}
+            onClick={() => setTab(item.value)}
             className={`min-w-fit rounded-xl px-4 py-2 font-bold transition ${
-              filter === item.value
+              tab === item.value
                 ? "bg-emerald-600 text-white"
                 : "bg-slate-800 text-slate-300 border border-slate-700"
             }`}
@@ -971,49 +1034,119 @@ function MacTahminlerim() {
         ))}
       </div>
 
-      {filteredPredictions.length === 0 ? (
-        <div className="text-slate-400">Tahmin bulunamadı.</div>
-      ) : (
-        <div className="space-y-3">
-          {filteredPredictions.map((prediction) => {
-            const match = getMatch(prediction.match_id);
-            const odds = getMatchOdds(prediction.match_id) || {};
+      {tab === "matches" && (
+        <>
+          {myPredictions.length === 0 ? (
+            <div className="text-slate-400">Maç tahmini bulunamadı.</div>
+          ) : (
+            <div className="space-y-3">
+              {myPredictions.map((prediction) => {
+                const match = getMatch(prediction.match_id);
+                const odds = getMatchOdds(prediction.match_id) || {};
 
-            return (
-              <div
-                key={prediction.id}
-                className="rounded-2xl bg-slate-800 p-5 border border-slate-700"
-              >
-                <div className="text-sm text-slate-400 mb-2">
-                  {match
-                    ? `${match.date} - ${match.time}`
-                    : `Maç ID: ${prediction.match_id}`}
-                </div>
+                const msText =
+                  Number(prediction.ms) === 0 ? "X" : prediction.ms;
 
-                <div className="text-lg font-bold mb-4">
-                  {match
-                    ? `${match.home} - ${match.away}`
-                    : "Maç bulunamadı"}
-                </div>
+                const msOdd = getSelectedMsOdd(prediction, odds);
+                const ouOdd = getSelectedOuOdd(prediction, odds);
 
-                <div className="flex gap-2">
-                  <span className="bg-emerald-600 px-3 py-1 rounded-lg text-sm font-bold">
-                    MS: {Number(prediction.ms) === 0 ? "X" : prediction.ms}
-                  </span>
+                return (
+                  <div
+                    key={prediction.id}
+                    className="rounded-2xl bg-slate-800 p-5 border border-slate-700"
+                  >
+                    <div className="text-sm text-slate-400 mb-2">
+                      {match
+                        ? `${match.date} - ${match.time}`
+                        : `Maç ID: ${prediction.match_id}`}
+                    </div>
 
-                  <span className="bg-emerald-600 px-3 py-1 rounded-lg text-sm font-bold">
-                    {prediction.ou}
-                  </span>
-                </div>
+                    <div className="text-lg font-bold mb-4">
+                      {match
+                        ? `${match.home} - ${match.away}`
+                        : "Maç bulunamadı"}
+                    </div>
 
-                <div className="text-sm text-slate-400 mt-3">
-                  Oranlar: MS1 {odds.ms1 || "-"} | MSX {odds.ms0 || "-"} | MS2{" "}
-                  {odds.ms2 || "-"} | Alt {odds.under || "-"} | Üst{" "}
-                  {odds.over || "-"}
-                </div>
-              </div>
-            );
-          })}
+                    <div className="flex flex-wrap gap-2">
+                      <span className="bg-emerald-600 px-3 py-1 rounded-lg text-sm font-bold">
+                        MS: {msText} ({msOdd})
+                      </span>
+
+                      <span className="bg-emerald-600 px-3 py-1 rounded-lg text-sm font-bold">
+                        {prediction.ou} ({ouOdd})
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "groupleaders" && (
+        <div className="overflow-x-auto rounded-2xl border border-slate-700">
+          <table className="w-full min-w-[900px] bg-[#0f172a]">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="p-4 text-left text-slate-300">Grup</th>
+                <th className="p-4 text-left text-slate-300">Tahminim</th>
+                <th className="p-4 text-left text-slate-300">Oran</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {groupNames.map((groupName) => {
+                const prediction = getGroupPrediction(groupName);
+                const team = prediction?.team_name;
+                const odd = team ? getGroupOdd(groupName, team) : "-";
+
+                return (
+                  <tr key={groupName} className="border-b border-slate-800">
+                    <td className="p-4 font-bold">Grup {groupName}</td>
+                    <td className="p-4 text-emerald-400 font-bold">
+                      {team || "-"}
+                    </td>
+                    <td className="p-4 text-slate-300 font-bold">{odd}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === "champion" && (
+        <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5">
+          <h3 className="text-xl font-bold mb-4">Şampiyon Tahminim</h3>
+
+          {myChampion?.team_name ? (
+            <div className="flex items-center justify-between rounded-xl bg-slate-800 border border-slate-700 p-4">
+              <span className="font-bold">{myChampion.team_name}</span>
+              <span className="text-emerald-400 font-extrabold">
+                {getChampionOdd(myChampion.team_name)}
+              </span>
+            </div>
+          ) : (
+            <div className="text-slate-400">Şampiyon tahmini bulunamadı.</div>
+          )}
+        </div>
+      )}
+
+      {tab === "turkiye" && (
+        <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5">
+          <h3 className="text-xl font-bold mb-4">Türkiye Tahminim</h3>
+
+          {myTurkeyPrediction?.result_name ? (
+            <div className="flex items-center justify-between rounded-xl bg-slate-800 border border-slate-700 p-4">
+              <span className="font-bold">{myTurkeyPrediction.result_name}</span>
+              <span className="text-emerald-400 font-extrabold">
+                {getTurkeyOdd(myTurkeyPrediction.result_name)}
+              </span>
+            </div>
+          ) : (
+            <div className="text-slate-400">Türkiye tahmini bulunamadı.</div>
+          )}
         </div>
       )}
     </div>
