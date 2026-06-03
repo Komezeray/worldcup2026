@@ -1304,7 +1304,7 @@ function KatilimciTahminleri() {
   const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
   const allMatches = [...matches, ...customMatches];
 
-  const longTermRevealTime = new Date("2025-01-01T00:00:00");
+  const longTermRevealTime = new Date("2026-06-11T19:15:00");
   const showLongTermPredictions = new Date() >= longTermRevealTime;
 
   useEffect(() => {
