@@ -458,7 +458,165 @@ function Siralama() {
 
     const realChampion = realChampionData?.[0]?.champion || "";
     const realTurkeyResult = realTurkeyData?.[0]?.result_name || "";
+const seededPick = (items, seedText) => {
+  if (!items || items.length === 0) return null;
 
+  let seed = 0;
+  for (let i = 0; i < seedText.length; i++) {
+    seed += seedText.charCodeAt(i);
+  }
+
+  return items[seed % items.length];
+};
+
+const pickOdd = (items, mode, seedText) => {
+  const cleanItems = items.filter(
+    (item) => item && Number(item.odd) > 0
+  );
+
+  if (cleanItems.length === 0) return null;
+
+  const target =
+    mode === "banko"
+      ? Math.min(...cleanItems.map((i) => Number(i.odd)))
+      : Math.max(...cleanItems.map((i) => Number(i.odd)));
+
+  const tiedItems = cleanItems.filter(
+    (item) => Number(item.odd) === Number(target)
+  );
+
+  return seededPick(tiedItems, seedText);
+};
+
+const calculateVirtualUser = (name, mode) => {
+  let matchPoints = 0;
+  let groupPoints = 0;
+  let championPoints = 0;
+  let turkeyPoints = 0;
+
+  let correct = 0;
+  let total = 0;
+
+  // MAÇLAR
+  (scores || []).forEach((score) => {
+    const matchId = Number(score.match_id);
+    const homeScore = Number(score.home_score);
+    const awayScore = Number(score.away_score);
+
+    const matchOdd = (odds || []).find(
+      (o) => Number(o.match_id) === matchId
+    );
+
+    if (!matchOdd) return;
+
+    const realMS = getMSResult(homeScore, awayScore);
+    const realOU = getOUResult(homeScore, awayScore);
+
+    const msPick = pickOdd(
+      [
+        { value: 1, odd: matchOdd.ms1 },
+        { value: 0, odd: matchOdd.ms0 },
+        { value: 2, odd: matchOdd.ms2 },
+      ],
+      mode,
+      `${name}-MS-${matchId}`
+    );
+
+    const ouPick = pickOdd(
+      [
+        { value: "Alt", odd: matchOdd.under },
+        { value: "Üst", odd: matchOdd.over },
+      ],
+      mode,
+      `${name}-OU-${matchId}`
+    );
+
+    total += 2;
+
+    if (msPick && Number(msPick.value) === realMS) {
+      correct += 1;
+      matchPoints += Number(msPick.odd || 0);
+    }
+
+    if (ouPick && ouPick.value === realOU) {
+      correct += 1;
+      matchPoints += Number(ouPick.odd || 0);
+    }
+  });
+
+  // GRUP LİDERLERİ
+  (realGroupWinners || []).forEach((realGroup) => {
+    if (!realGroup.winner) return;
+
+    const groupItems = (groupOdds || [])
+      .filter((o) => o.group_name === realGroup.group_name)
+      .map((o) => ({
+        value: o.team_name,
+        odd: o.odd,
+      }));
+
+    const pick = pickOdd(
+      groupItems,
+      mode,
+      `${name}-GROUP-${realGroup.group_name}`
+    );
+
+    total += 1;
+
+    if (pick && pick.value === realGroup.winner) {
+      correct += 1;
+      groupPoints += Number(pick.odd || 0);
+    }
+  });
+
+  // ŞAMPİYON
+  if (realChampion) {
+    const championItems = (championOdds || []).map((o) => ({
+      value: o.team_name,
+      odd: o.odd,
+    }));
+
+    const pick = pickOdd(championItems, mode, `${name}-CHAMPION`);
+
+    total += 1;
+
+    if (pick && pick.value === realChampion) {
+      correct += 1;
+      championPoints += Number(pick.odd || 0);
+    }
+  }
+
+  // TÜRKİYE
+  if (realTurkeyResult) {
+    const turkeyItems = (turkeyOdds || []).map((o) => ({
+      value: o.result_name,
+      odd: o.odd,
+    }));
+
+    const pick = pickOdd(turkeyItems, mode, `${name}-TURKEY`);
+
+    total += 1;
+
+    if (pick && pick.value === realTurkeyResult) {
+      correct += 1;
+      turkeyPoints += Number(pick.odd || 0);
+    }
+  }
+
+  const totalPoints =
+    matchPoints + groupPoints + championPoints + turkeyPoints;
+
+  return {
+    name,
+    matchPoints: Number(matchPoints.toFixed(2)),
+    groupPoints: Number(groupPoints.toFixed(2)),
+    championPoints: Number(championPoints.toFixed(2)),
+    turkeyPoints: Number(turkeyPoints.toFixed(2)),
+    totalPoints: Number(totalPoints.toFixed(2)),
+    success: total === 0 ? 0 : Number(((correct / total) * 100).toFixed(2)),
+    correctText: total === 0 ? "0/0" : `${correct}/${total}`,
+  };
+};
     const standings = (users || []).map((user) => {
       let matchPoints = 0;
       let groupPoints = 0;
@@ -591,6 +749,8 @@ function Siralama() {
     : `${correct}/${total}`,
       };
     });
+standings.push(calculateVirtualUser("Banko", "banko"));
+standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
 
     const sorted = standings
       .sort((a, b) => b.totalPoints - a.totalPoints)
