@@ -819,6 +819,7 @@ standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
 
 function MacBulteni() {
   const [predictions, setPredictions] = useState({});
+  const [savedPredictions, setSavedPredictions] = useState([]);
   const [filter, setFilter] = useState("all");
   const [now, setNow] = useState(new Date());
   const [dbOdds, setDbOdds] = useState([]);
@@ -829,12 +830,11 @@ function MacBulteni() {
 
   React.useEffect(() => {
     fetchDbOdds();
+    fetchSavedPredictions();
   }, []);
 
   const fetchDbOdds = async () => {
-    const { data, error } = await supabase
-      .from("match_odds")
-      .select("*");
+    const { data, error } = await supabase.from("match_odds").select("*");
 
     if (error) {
       console.log("Oranlar alınamadı:", error);
@@ -844,9 +844,39 @@ function MacBulteni() {
     setDbOdds(data || []);
   };
 
+  const fetchSavedPredictions = async () => {
+    const loggedInUser = localStorage.getItem("loggedInUser");
+
+    const { data, error } = await supabase
+      .from("predictions")
+      .select("*")
+      .eq("user_name", loggedInUser);
+
+    if (error) {
+      console.log("Tahminler alınamadı:", error);
+      return;
+    }
+
+    setSavedPredictions(data || []);
+
+    const predictionsObj = {};
+    (data || []).forEach((item) => {
+      predictionsObj[item.match_id] = {
+        ms: item.ms,
+        ou: item.ou,
+      };
+    });
+
+    setPredictions(predictionsObj);
+  };
+
   const getMatchOdds = (matchId) => {
-    return dbOdds.find(
-      (odd) => Number(odd.match_id) === Number(matchId)
+    return dbOdds.find((odd) => Number(odd.match_id) === Number(matchId));
+  };
+
+  const hasSavedPrediction = (matchId) => {
+    return savedPredictions.some(
+      (prediction) => Number(prediction.match_id) === Number(matchId)
     );
   };
 
@@ -908,8 +938,16 @@ function MacBulteni() {
   };
 
   const sortedMatches = [...allMatches].sort((a, b) => {
+    const aClosed = isPredictionClosed(a);
+    const bClosed = isPredictionClosed(b);
+
+    if (aClosed !== bClosed) {
+      return aClosed ? 1 : -1;
+    }
+
     const dateCompare = a.dateOrder.localeCompare(b.dateOrder);
     if (dateCompare !== 0) return dateCompare;
+
     return a.time.localeCompare(b.time);
   });
 
@@ -939,46 +977,48 @@ function MacBulteni() {
   };
 
   const savePrediction = async (match) => {
-  if (isPredictionClosed(match)) {
-    alert("Bu maç için tahmin süresi kapandı.");
-    return;
-  }
+    if (isPredictionClosed(match)) {
+      alert("Bu maç için tahmin süresi kapandı.");
+      return;
+    }
 
-  const prediction = predictions[match.id];
+    const prediction = predictions[match.id];
 
-  if (!prediction?.ms && prediction?.ms !== 0) {
-    alert("Lütfen maç sonucu tahmini seç.");
-    return;
-  }
+    if (!prediction?.ms && prediction?.ms !== 0) {
+      alert("Lütfen maç sonucu tahmini seç.");
+      return;
+    }
 
-  if (!prediction?.ou) {
-    alert("Lütfen Alt / Üst tahmini seç.");
-    return;
-  }
+    if (!prediction?.ou) {
+      alert("Lütfen Alt / Üst tahmini seç.");
+      return;
+    }
 
-  const loggedInUser = localStorage.getItem("loggedInUser");
+    const loggedInUser = localStorage.getItem("loggedInUser");
 
-  await supabase
-    .from("predictions")
-    .delete()
-    .eq("user_name", loggedInUser)
-    .eq("match_id", match.id);
+    await supabase
+      .from("predictions")
+      .delete()
+      .eq("user_name", loggedInUser)
+      .eq("match_id", match.id);
 
-  const { error } = await supabase.from("predictions").insert({
-    user_name: loggedInUser,
-    match_id: match.id,
-    ms: prediction.ms,
-    ou: prediction.ou,
-  });
+    const { error } = await supabase.from("predictions").insert({
+      user_name: loggedInUser,
+      match_id: match.id,
+      ms: prediction.ms,
+      ou: prediction.ou,
+    });
 
-  if (error) {
-    alert("Tahmin kaydedilemedi.");
-    console.log(error);
-    return;
-  }
+    if (error) {
+      alert("Tahmin kaydedilemedi.");
+      console.log(error);
+      return;
+    }
 
-  alert("Tahmin kaydedildi.");
-};
+    await fetchSavedPredictions();
+
+    alert("Tahmin kaydedildi.");
+  };
 
   const filters = [
     { label: "Tümü", value: "all" },
@@ -1021,6 +1061,7 @@ function MacBulteni() {
         const selectedOU = predictions[match.id]?.ou;
         const odds = getMatchOdds(match.id) || {};
         const closed = isPredictionClosed(match);
+        const saved = hasSavedPrediction(match.id);
 
         return (
           <div
@@ -1050,9 +1091,18 @@ function MacBulteni() {
               }`}
             >
               ⏳ Son tahmin: {formatDeadline(match)}
-              <div className="mt-1 text-xs">
-                {getRemainingTimeText(match)}
-              </div>
+
+              <div className="mt-1 text-xs">{getRemainingTimeText(match)}</div>
+
+              {saved ? (
+                <div className="mt-2 text-emerald-400 font-bold">
+                  ✅ Tahmin yapıldı
+                </div>
+              ) : (
+                <div className="mt-2 text-red-400 font-bold">
+                  🔴 Henüz tahmin yapılmadı
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2 mb-3">
@@ -1075,9 +1125,7 @@ function MacBulteni() {
                   >
                     MS{value === 0 ? "X" : value}
                     <br />
-                    <span className="text-white font-bold">
-                      {oddValue || "-"}
-                    </span>
+                    <span className="text-white font-bold">{oddValue || "-"}</span>
                   </button>
                 );
               })}
