@@ -48,7 +48,7 @@ const rawMatches = [
   { id: 41, matchday: 3, stage: "Grup", group: "G", date: "27 Haziran 2026", dateOrder: "2026-06-27", time: "06:00", home: "Mısır", away: "İran" },
   { id: 42, matchday: 3, stage: "Grup", group: "G", date: "27 Haziran 2026", dateOrder: "2026-06-27", time: "06:00", home: "Yeni Zelanda", away: "Belçika" },
 
-  { id: 43, matchday: 1, stage: "Grup", group: "H", date: "15 Haziran 2026", dateOrder: "2026-06-15", time: "20:00", home: "İspanya", away: "Yeşil Burun" },
+  { id: 43, matchday: 1, stage: "Grup", group: "H", date: "15 Haziran 2026", dateOrder: "2026-06-15", time: "19:00", home: "İspanya", away: "Yeşil Burun" },
   { id: 44, matchday: 1, stage: "Grup", group: "H", date: "16 Haziran 2026", dateOrder: "2026-06-16", time: "01:00", home: "S.Arabistan", away: "Uruguay" },
   { id: 45, matchday: 2, stage: "Grup", group: "H", date: "21 Haziran 2026", dateOrder: "2026-06-21", time: "19:00", home: "İspanya", away: "S.Arabistan" },
   { id: 46, matchday: 2, stage: "Grup", group: "H", date: "22 Haziran 2026", dateOrder: "2026-06-22", time: "01:00", home: "Uruguay", away: "Yeşil Burun" },
