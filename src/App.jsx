@@ -1709,8 +1709,8 @@ function KatilimciTahminleri() {
   const getOuOdd = (prediction, odds) => {
     if (!prediction || !odds) return "-";
 
-    if (prediction.ou === "Alt") return odds.under || "-";
-    if (prediction.ou === "Üst") return odds.over || "-";
+    if (prediction.ou?.toLowerCase() === "alt") return odds.under || "-";
+    if (prediction.ou?.toLowerCase() === "üst") return odds.over || "-";
 
     return "-";
   };
@@ -1925,15 +1925,25 @@ function KatilimciTahminleri() {
                         Katılımcılar
                       </th>
 
-                      {chunk.map((match) => (
-                        <th
-                          key={match.id}
-                          colSpan="2"
-                          className="p-4 text-center font-bold"
-                        >
-                          {match.home} - {match.away}
-                        </th>
-                      ))}
+                      {chunk.map((match) => {
+  const score = getMatchScore(match.id);
+
+  return (
+    <th
+      key={match.id}
+      colSpan="2"
+      className="p-4 text-center font-bold"
+    >
+      {match.home} - {match.away}
+
+      {score && (
+        <span className="ml-2 text-emerald-400">
+          ({score.home_score}-{score.away_score})
+        </span>
+      )}
+    </th>
+  );
+})}
                     </tr>
 
                     <tr className="border-b border-slate-700">
