@@ -1731,6 +1731,29 @@ function KatilimciTahminleri() {
       : "text-red-400";
   };
 
+  const getUserChunkScore = (username, chunk) => {
+  let total = 0;
+
+  chunk.forEach((match) => {
+    const prediction = getPrediction(username, match.id);
+    const odds = getMatchOdds(match.id);
+    const score = getMatchScore(match.id);
+
+    if (!prediction || !odds || !score) return;
+
+    if (Number(prediction.ms) === getRealMS(score)) {
+      const msOdd = Number(getMsOdd(prediction, odds));
+      if (!isNaN(msOdd)) total += msOdd;
+    }
+
+    if (prediction.ou?.toLowerCase() === getRealOU(score)?.toLowerCase()) {
+      const ouOdd = Number(getOuOdd(prediction, odds));
+      if (!isNaN(ouOdd)) total += ouOdd;
+    }
+  });
+
+  return total;
+};
   const getGroupPrediction = (username, groupName) => {
     return groupPredictions.find(
       (p) => p.user_name === username && p.group_name === groupName
@@ -1964,7 +1987,12 @@ function KatilimciTahminleri() {
                         key={user.username}
                         className="border-b border-slate-800"
                       >
-                        <td className="p-4 font-bold">{user.username}</td>
+                        <td className="p-4 font-bold">
+  {user.username}
+  <span className="ml-2 text-emerald-400">
+    ({getUserChunkScore(user.username, chunk).toFixed(2)})
+  </span>
+</td>
 
                         {chunk.map((match) => {
                           const prediction = getPrediction(
