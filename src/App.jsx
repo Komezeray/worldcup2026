@@ -493,6 +493,9 @@ const calculateVirtualUser = (name, mode) => {
   let groupPoints = 0;
   let championPoints = 0;
   let turkeyPoints = 0;
+  let matchday1Points = 0;
+  let matchday2Points = 0;
+  let matchday3Points = 0;
 
   let correct = 0;
   let total = 0;
@@ -533,15 +536,35 @@ const calculateVirtualUser = (name, mode) => {
 
     total += 2;
 
-    if (msPick && Number(msPick.value) === realMS) {
-      correct += 1;
-      matchPoints += Number(msPick.odd || 0);
-    }
+if (msPick && Number(msPick.value) === realMS) {
+  correct += 1;
 
-    if (ouPick && ouPick.value === realOU) {
-      correct += 1;
-      matchPoints += Number(ouPick.odd || 0);
-    }
+  const addedPoint = Number(msPick.odd || 0);
+  matchPoints += addedPoint;
+
+  const match = matches.find((m) => Number(m.id) === matchId);
+
+  if (match) {
+    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
+    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
+    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
+  }
+}
+
+if (ouPick && ouPick.value === realOU) {
+  correct += 1;
+
+  const addedPoint = Number(ouPick.odd || 0);
+  matchPoints += addedPoint;
+
+  const match = matches.find((m) => Number(m.id) === matchId);
+
+  if (match) {
+    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
+    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
+    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
+  }
+}
   });
 
   // GRUP LİDERLERİ
