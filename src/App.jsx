@@ -632,6 +632,9 @@ if (ouPick && ouPick.value === realOU) {
   return {
     name,
     matchPoints: Number(matchPoints.toFixed(2)),
+    matchday1Points: Number(matchday1Points.toFixed(2)),
+    matchday2Points: Number(matchday2Points.toFixed(2)),
+    matchday3Points: Number(matchday3Points.toFixed(2)),
     groupPoints: Number(groupPoints.toFixed(2)),
     championPoints: Number(championPoints.toFixed(2)),
     turkeyPoints: Number(turkeyPoints.toFixed(2)),
