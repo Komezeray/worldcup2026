@@ -622,6 +622,9 @@ const calculateVirtualUser = (name, mode) => {
       let groupPoints = 0;
       let championPoints = 0;
       let turkeyPoints = 0;
+      let matchday1Points = 0;
+      let matchday2Points = 0;
+      let matchday3Points = 0;
 
       let correct = 0;
       let total = 0;
@@ -651,20 +654,44 @@ const calculateVirtualUser = (name, mode) => {
 
         if (!userPrediction) return;
 
-        if (Number(userPrediction.ms) === realMS) {
-          correct += 1;
+if (Number(userPrediction.ms) === realMS) {
+  correct += 1;
 
-          if (realMS === 1) matchPoints += Number(matchOdd.ms1 || 0);
-          if (realMS === 0) matchPoints += Number(matchOdd.ms0 || 0);
-          if (realMS === 2) matchPoints += Number(matchOdd.ms2 || 0);
-        }
+  let addedPoint = 0;
 
-        if (userPrediction.ou === realOU) {
-          correct += 1;
+  if (realMS === 1) addedPoint = Number(matchOdd.ms1 || 0);
+  if (realMS === 0) addedPoint = Number(matchOdd.ms0 || 0);
+  if (realMS === 2) addedPoint = Number(matchOdd.ms2 || 0);
 
-          if (realOU === "Alt") matchPoints += Number(matchOdd.under || 0);
-          if (realOU === "Üst") matchPoints += Number(matchOdd.over || 0);
-        }
+  matchPoints += addedPoint;
+
+  const match = matches.find((m) => Number(m.id) === matchId);
+
+  if (match) {
+    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
+    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
+    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
+  }
+}
+
+if (userPrediction.ou?.toLowerCase() === realOU.toLowerCase()) {
+  correct += 1;
+
+  let addedPoint = 0;
+
+  if (realOU === "Alt") addedPoint = Number(matchOdd.under || 0);
+  if (realOU === "Üst") addedPoint = Number(matchOdd.over || 0);
+
+  matchPoints += addedPoint;
+
+  const match = matches.find((m) => Number(m.id) === matchId);
+
+  if (match) {
+    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
+    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
+    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
+  }
+}
       });
 
       // GRUP BİRİNCİLİĞİ PUANLARI
@@ -738,6 +765,9 @@ const calculateVirtualUser = (name, mode) => {
       return {
         name: user.username,
         matchPoints: Number(matchPoints.toFixed(2)),
+        matchday1Points: Number(matchday1Points.toFixed(2)),
+        matchday2Points: Number(matchday2Points.toFixed(2)),
+        matchday3Points: Number(matchday3Points.toFixed(2)),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
@@ -774,6 +804,9 @@ standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
             <th className="text-left py-3">Toplam</th>
             <th className="text-left py-3">Başarı %</th>
             <th className="text-left py-3">Doğru Tahmin</th>
+            <th className="text-left py-3">1.Maçlar</th>
+            <th className="text-left py-3">2.Maçlar</th>
+            <th className="text-left py-3">3.Maçlar</th>
             <th className="text-left py-3">Maç</th>
             <th className="text-left py-3">Grup</th>
             <th className="text-left py-3">Şampiyon</th>
@@ -793,6 +826,18 @@ standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
 
       <td className="py-4 px-2">%{user.success}</td>
       <td className="py-4 px-2">{user.correctText}</td>
+
+      <td className="py-4 px-2 text-slate-300 font-bold">
+  {user.matchday1Points}
+</td>
+
+<td className="py-4 px-2 text-slate-300 font-bold">
+  {user.matchday2Points}
+</td>
+
+<td className="py-4 px-2 text-slate-300 font-bold">
+  {user.matchday3Points}
+</td>
 
       <td className="py-4 px-2 text-slate-300 font-bold">
         {user.matchPoints}
