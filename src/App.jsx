@@ -416,7 +416,10 @@ function Siralama() {
 
   const calculateStandingsFromSupabase = async () => {
     const { data: users } = await supabase.from("users").select("*");
-    const { data: predictions } = await supabase.from("predictions").select("*");
+    const { data: predictions } = await supabase
+  .from("predictions")
+  .select("*")
+  .range(0, 10000);
     const { data: odds } = await supabase.from("match_odds").select("*");
     const { data: scores } = await supabase.from("match_scores").select("*");
 
@@ -1694,7 +1697,10 @@ function KatilimciTahminleri() {
   }, []);
 
   const fetchData = async () => {
-    const { data: predictionData } = await supabase.from("predictions").select("*");
+    const { data: predictionData } = await supabase
+  .from("predictions")
+  .select("*")
+  .range(0, 10000);
     const { data: userData } = await supabase.from("users").select("*");
     const { data: oddsData } = await supabase.from("match_odds").select("*");
     const { data: scoreData } = await supabase.from("match_scores").select("*");
