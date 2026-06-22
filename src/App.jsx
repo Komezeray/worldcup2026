@@ -2587,10 +2587,10 @@ function Istatistik() {
   const [stats, setStats] = useState({
     zeroMatches: [],
     noMsMatches: [],
-    mostDrawPredicted: [],
     overUnderSummary: { ust: 0, alt: 0 },
     highestCorrectOdds: [],
     mostPointMatches: [],
+    leastPointMatches: [],
   });
 
   useEffect(() => {
@@ -2659,9 +2659,9 @@ function Istatistik() {
 
     const zeroMatches = [];
     const noMsMatches = [];
-    const drawStats = [];
     const highestCorrectOdds = [];
     const mostPointMatches = [];
+    const leastPointMatches = [];
 
     let ustCount = 0;
     let altCount = 0;
@@ -2669,7 +2669,9 @@ function Istatistik() {
     (scores || []).forEach((score) => {
       const matchId = Number(score.match_id);
       const match = allMatches.find((m) => Number(m.id) === matchId);
-      const matchOdds = (odds || []).find((o) => Number(o.match_id) === matchId);
+      const matchOdds = (odds || []).find(
+        (o) => Number(o.match_id) === matchId
+      );
 
       if (!match || !matchOdds) return;
 
@@ -2690,15 +2692,12 @@ function Istatistik() {
 
       let anyPoint = false;
       let anyMsCorrect = false;
-      let drawPredictionCount = 0;
       let matchTotalPoint = 0;
 
       matchPredictions.forEach((p) => {
         const msCorrect = Number(p.ms) === realMS;
         const ouCorrect =
           String(p.ou).toLowerCase() === String(realOU).toLowerCase();
-
-        if (Number(p.ms) === 0) drawPredictionCount += 1;
 
         if (msCorrect) {
           anyPoint = true;
@@ -2737,34 +2736,28 @@ function Istatistik() {
         group: match.group || match.group_name,
         matchday: match.matchday,
         predictionCount: matchPredictions.length,
+        totalPoint: Number(matchTotalPoint.toFixed(2)),
       };
 
       if (!anyPoint) zeroMatches.push(matchInfo);
       if (!anyMsCorrect) noMsMatches.push(matchInfo);
 
-      drawStats.push({
-        ...matchInfo,
-        drawPredictionCount,
-      });
-
-      mostPointMatches.push({
-        ...matchInfo,
-        totalPoint: Number(matchTotalPoint.toFixed(2)),
-      });
+      mostPointMatches.push(matchInfo);
+      leastPointMatches.push(matchInfo);
     });
 
     setStats({
       zeroMatches,
       noMsMatches,
-      mostDrawPredicted: drawStats
-        .sort((a, b) => b.drawPredictionCount - a.drawPredictionCount)
-        .slice(0, 10),
       overUnderSummary: { ust: ustCount, alt: altCount },
       highestCorrectOdds: highestCorrectOdds
         .sort((a, b) => b.odd - a.odd)
         .slice(0, 15),
       mostPointMatches: mostPointMatches
         .sort((a, b) => b.totalPoint - a.totalPoint)
+        .slice(0, 10),
+      leastPointMatches: leastPointMatches
+        .sort((a, b) => a.totalPoint - b.totalPoint)
         .slice(0, 10),
     });
   };
@@ -2814,16 +2807,16 @@ function Istatistik() {
         />
       </StatCard>
 
-      <StatCard title="En Çok Beraberlik Tahmini Yapılan Maçlar">
+      <StatCard title="En Az Puan Toplanan Maçlar 🥶">
         <div className="space-y-3">
-          {stats.mostDrawPredicted.map((item) => (
+          {stats.leastPointMatches.map((item) => (
             <div key={item.id} className="rounded-xl bg-slate-800 p-4">
               <div className="font-bold">
                 {item.name}{" "}
                 <span className="text-emerald-400">({item.score})</span>
               </div>
               <div className="text-sm text-slate-400 mt-1">
-                Beraberlik tahmini: {item.drawPredictionCount} kişi
+                Toplam dağıtılan puan: {item.totalPoint}
               </div>
             </div>
           ))}
