@@ -2619,7 +2619,6 @@ function Istatistik() {
       allRows = [...allRows, ...(data || [])];
 
       if (!data || data.length < size) break;
-
       from += size;
     }
 
@@ -2654,6 +2653,19 @@ function Istatistik() {
   const fetchStats = async () => {
     const predictions = await fetchAllRows("predictions");
 
+    const latestPredictionsMap = new Map();
+
+    (predictions || []).forEach((p) => {
+      const key = `${String(p.user_name).trim()}-${Number(p.match_id)}`;
+      const existing = latestPredictionsMap.get(key);
+
+      if (!existing || Number(p.id) > Number(existing.id)) {
+        latestPredictionsMap.set(key, p);
+      }
+    });
+
+    const cleanPredictions = Array.from(latestPredictionsMap.values());
+
     const { data: scores } = await supabase.from("match_scores").select("*");
     const { data: odds } = await supabase.from("match_odds").select("*");
 
@@ -2684,7 +2696,7 @@ function Istatistik() {
       if (realOU === "Üst") ustCount += 1;
       if (realOU === "Alt") altCount += 1;
 
-      const matchPredictions = (predictions || []).filter(
+      const matchPredictions = cleanPredictions.filter(
         (p) => Number(p.match_id) === matchId
       );
 
@@ -2816,7 +2828,8 @@ function Istatistik() {
                 <span className="text-emerald-400">({item.score})</span>
               </div>
               <div className="text-sm text-slate-400 mt-1">
-                Toplam dağıtılan puan: {item.totalPoint}
+                Toplam dağıtılan puan: {item.totalPoint} • Tahmin yapan:{" "}
+                {item.predictionCount}
               </div>
             </div>
           ))}
@@ -2866,7 +2879,8 @@ function Istatistik() {
                 <span className="text-emerald-400">({item.score})</span>
               </div>
               <div className="text-sm text-slate-400 mt-1">
-                Toplam dağıtılan puan: {item.totalPoint}
+                Toplam dağıtılan puan: {item.totalPoint} • Tahmin yapan:{" "}
+                {item.predictionCount}
               </div>
             </div>
           ))}
