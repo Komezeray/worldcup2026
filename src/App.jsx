@@ -2584,25 +2584,301 @@ function Turkiye() {
 }
 
 function Istatistik() {
-  return (
-    <div className="space-y-6">
+  const [stats, setStats] = useState({
+    zeroMatches: [],
+    noMsMatches: [],
+    mostDrawPredicted: [],
+    overUnderSummary: { ust: 0, alt: 0 },
+    highestCorrectOdds: [],
+    mostPointMatches: [],
+  });
 
-      <h1 className="text-3xl font-bold">
-        İstatistik
-      </h1>
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
-      <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-6">
+  const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
+  const allMatches = [...matches, ...customMatches];
 
-        <h2 className="text-xl font-bold text-emerald-400 mb-4">
-          Herkesin 0 Aldığı Maçlar
-        </h2>
+  const fetchAllRows = async (tableName) => {
+    let allRows = [];
+    let from = 0;
+    const size = 1000;
 
-        <div className="text-slate-300">
-          Henüz veri yok.
-        </div>
+    while (true) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select("*")
+        .range(from, from + size - 1);
 
+      if (error) {
+        console.log(`${tableName} alınamadı:`, error);
+        break;
+      }
+
+      allRows = [...allRows, ...(data || [])];
+
+      if (!data || data.length < size) break;
+
+      from += size;
+    }
+
+    return allRows;
+  };
+
+  const getMSResult = (home, away) => {
+    if (home > away) return 1;
+    if (home === away) return 0;
+    return 2;
+  };
+
+  const getOUResult = (home, away) => {
+    return home + away >= 3 ? "Üst" : "Alt";
+  };
+
+  const getMsOdd = (ms, odds) => {
+    if (!odds) return 0;
+    if (Number(ms) === 1) return Number(odds.ms1 || 0);
+    if (Number(ms) === 0) return Number(odds.ms0 || 0);
+    if (Number(ms) === 2) return Number(odds.ms2 || 0);
+    return 0;
+  };
+
+  const getOuOdd = (ou, odds) => {
+    if (!odds) return 0;
+    if (String(ou).toLowerCase() === "alt") return Number(odds.under || 0);
+    if (String(ou).toLowerCase() === "üst") return Number(odds.over || 0);
+    return 0;
+  };
+
+  const fetchStats = async () => {
+    const predictions = await fetchAllRows("predictions");
+
+    const { data: scores } = await supabase.from("match_scores").select("*");
+    const { data: odds } = await supabase.from("match_odds").select("*");
+
+    const zeroMatches = [];
+    const noMsMatches = [];
+    const drawStats = [];
+    const highestCorrectOdds = [];
+    const mostPointMatches = [];
+
+    let ustCount = 0;
+    let altCount = 0;
+
+    (scores || []).forEach((score) => {
+      const matchId = Number(score.match_id);
+      const match = allMatches.find((m) => Number(m.id) === matchId);
+      const matchOdds = (odds || []).find((o) => Number(o.match_id) === matchId);
+
+      if (!match || !matchOdds) return;
+
+      const homeScore = Number(score.home_score);
+      const awayScore = Number(score.away_score);
+
+      const realMS = getMSResult(homeScore, awayScore);
+      const realOU = getOUResult(homeScore, awayScore);
+
+      if (realOU === "Üst") ustCount += 1;
+      if (realOU === "Alt") altCount += 1;
+
+      const matchPredictions = (predictions || []).filter(
+        (p) => Number(p.match_id) === matchId
+      );
+
+      if (matchPredictions.length === 0) return;
+
+      let anyPoint = false;
+      let anyMsCorrect = false;
+      let drawPredictionCount = 0;
+      let matchTotalPoint = 0;
+
+      matchPredictions.forEach((p) => {
+        const msCorrect = Number(p.ms) === realMS;
+        const ouCorrect =
+          String(p.ou).toLowerCase() === String(realOU).toLowerCase();
+
+        if (Number(p.ms) === 0) drawPredictionCount += 1;
+
+        if (msCorrect) {
+          anyPoint = true;
+          anyMsCorrect = true;
+
+          const point = getMsOdd(p.ms, matchOdds);
+          matchTotalPoint += point;
+
+          highestCorrectOdds.push({
+            userName: p.user_name,
+            matchName: `${match.home} - ${match.away}`,
+            prediction: Number(p.ms) === 0 ? "MS X" : `MS ${p.ms}`,
+            odd: point,
+          });
+        }
+
+        if (ouCorrect) {
+          anyPoint = true;
+
+          const point = getOuOdd(p.ou, matchOdds);
+          matchTotalPoint += point;
+
+          highestCorrectOdds.push({
+            userName: p.user_name,
+            matchName: `${match.home} - ${match.away}`,
+            prediction: p.ou,
+            odd: point,
+          });
+        }
+      });
+
+      const matchInfo = {
+        id: matchId,
+        name: `${match.home} - ${match.away}`,
+        score: `${homeScore}-${awayScore}`,
+        group: match.group || match.group_name,
+        matchday: match.matchday,
+        predictionCount: matchPredictions.length,
+      };
+
+      if (!anyPoint) zeroMatches.push(matchInfo);
+      if (!anyMsCorrect) noMsMatches.push(matchInfo);
+
+      drawStats.push({
+        ...matchInfo,
+        drawPredictionCount,
+      });
+
+      mostPointMatches.push({
+        ...matchInfo,
+        totalPoint: Number(matchTotalPoint.toFixed(2)),
+      });
+    });
+
+    setStats({
+      zeroMatches,
+      noMsMatches,
+      mostDrawPredicted: drawStats
+        .sort((a, b) => b.drawPredictionCount - a.drawPredictionCount)
+        .slice(0, 10),
+      overUnderSummary: { ust: ustCount, alt: altCount },
+      highestCorrectOdds: highestCorrectOdds
+        .sort((a, b) => b.odd - a.odd)
+        .slice(0, 15),
+      mostPointMatches: mostPointMatches
+        .sort((a, b) => b.totalPoint - a.totalPoint)
+        .slice(0, 10),
+    });
+  };
+
+  const StatCard = ({ title, children }) => (
+    <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5">
+      <h3 className="text-xl font-bold mb-4 text-emerald-400">{title}</h3>
+      {children}
+    </div>
+  );
+
+  const MatchList = ({ items, emptyText }) =>
+    items.length === 0 ? (
+      <div className="text-slate-400">{emptyText}</div>
+    ) : (
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id} className="rounded-xl bg-slate-800 p-4">
+            <div className="font-bold">
+              {item.name}{" "}
+              <span className="text-emerald-400">({item.score})</span>
+            </div>
+            <div className="text-sm text-slate-400 mt-1">
+              Grup {item.group} • {item.matchday}. Maç • Tahmin yapan:{" "}
+              {item.predictionCount}
+            </div>
+          </div>
+        ))}
       </div>
+    );
 
+  return (
+    <div className="space-y-5">
+      <h2 className="text-2xl font-bold">İstatistik</h2>
+
+      <StatCard title="Herkesin 0 Aldığı Maçlar 😄">
+        <MatchList
+          items={stats.zeroMatches}
+          emptyText="Şimdilik herkesin 0 aldığı maç yok."
+        />
+      </StatCard>
+
+      <StatCard title="Kimsenin MS Tutturamadığı Maçlar">
+        <MatchList
+          items={stats.noMsMatches}
+          emptyText="Şimdilik herkes en az bir maç sonucu tutturmuş."
+        />
+      </StatCard>
+
+      <StatCard title="En Çok Beraberlik Tahmini Yapılan Maçlar">
+        <div className="space-y-3">
+          {stats.mostDrawPredicted.map((item) => (
+            <div key={item.id} className="rounded-xl bg-slate-800 p-4">
+              <div className="font-bold">
+                {item.name}{" "}
+                <span className="text-emerald-400">({item.score})</span>
+              </div>
+              <div className="text-sm text-slate-400 mt-1">
+                Beraberlik tahmini: {item.drawPredictionCount} kişi
+              </div>
+            </div>
+          ))}
+        </div>
+      </StatCard>
+
+      <StatCard title="Alt / Üst Dağılımı">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-xl bg-slate-800 p-4 text-center">
+            <div className="text-yellow-400 font-bold text-lg">Üst</div>
+            <div className="text-2xl font-extrabold">
+              {stats.overUnderSummary.ust}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-slate-800 p-4 text-center">
+            <div className="text-yellow-400 font-bold text-lg">Alt</div>
+            <div className="text-2xl font-extrabold">
+              {stats.overUnderSummary.alt}
+            </div>
+          </div>
+        </div>
+      </StatCard>
+
+      <StatCard title="En Yüksek Oranlı Doğru Tahminler 🔥">
+        <div className="space-y-3">
+          {stats.highestCorrectOdds.map((item, index) => (
+            <div key={index} className="rounded-xl bg-slate-800 p-4">
+              <div className="font-bold">
+                {item.userName} -{" "}
+                <span className="text-emerald-400">{item.odd}</span>
+              </div>
+              <div className="text-sm text-slate-400 mt-1">
+                {item.matchName} • {item.prediction}
+              </div>
+            </div>
+          ))}
+        </div>
+      </StatCard>
+
+      <StatCard title="En Fazla Puan Dağıtan Maçlar 💰">
+        <div className="space-y-3">
+          {stats.mostPointMatches.map((item) => (
+            <div key={item.id} className="rounded-xl bg-slate-800 p-4">
+              <div className="font-bold">
+                {item.name}{" "}
+                <span className="text-emerald-400">({item.score})</span>
+              </div>
+              <div className="text-sm text-slate-400 mt-1">
+                Toplam dağıtılan puan: {item.totalPoint}
+              </div>
+            </div>
+          ))}
+        </div>
+      </StatCard>
     </div>
   );
 }
