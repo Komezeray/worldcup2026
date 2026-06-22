@@ -158,6 +158,7 @@ function Layout({ loggedInUser, onLogout, onChangePassword }) {
     { name: "Grup Liderleri", path: "/grup-liderleri" },
     { name: "Şampiyon", path: "/sampiyon" },
     { name: "Türkiye", path: "/turkiye" },
+    { name: "İstatistik", path: "/istatistik" },
     ...(isAdmin ? [{ name: "Admin Paneli", path: "/admin" }] : []),
   ];
 
@@ -224,6 +225,7 @@ function Layout({ loggedInUser, onLogout, onChangePassword }) {
             <Route path="/grup-liderleri" element={<GrupLiderleri />} />
             <Route path="/sampiyon" element={<Sampiyon />} />
             <Route path="/turkiye" element={<Turkiye />} />
+            <Route path="/istatistik" element={<Istatistik />} />
             <Route path="/admin" element={<AdminPanel />} />
           </Routes>
         </section>
@@ -2577,6 +2579,30 @@ function Turkiye() {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function Istatistik() {
+  return (
+    <div className="space-y-6">
+
+      <h1 className="text-3xl font-bold">
+        İstatistik
+      </h1>
+
+      <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-6">
+
+        <h2 className="text-xl font-bold text-emerald-400 mb-4">
+          Herkesin 0 Aldığı Maçlar
+        </h2>
+
+        <div className="text-slate-300">
+          Henüz veri yok.
+        </div>
+
+      </div>
+
     </div>
   );
 }
