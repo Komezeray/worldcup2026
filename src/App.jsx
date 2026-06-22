@@ -414,12 +414,39 @@ function Siralama() {
     return home + away >= 3 ? "Üst" : "Alt";
   };
 
+  const fetchAllRows = async (tableName) => {
+    let allRows = [];
+    let from = 0;
+    const size = 1000;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select("*")
+        .range(from, from + size - 1);
+
+      if (error) {
+        console.log(`${tableName} alınamadı:`, error);
+        break;
+      }
+
+      allRows = [...allRows, ...(data || [])];
+
+      if (!data || data.length < size) break;
+
+      from += size;
+    }
+
+    return allRows;
+  };
+
   const calculateStandingsFromSupabase = async () => {
+    const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
+    const allMatches = [...matches, ...customMatches];
+
     const { data: users } = await supabase.from("users").select("*");
-    const { data: predictions } = await supabase
-  .from("predictions")
-  .select("*")
-  .range(0, 10000);
+    const predictions = await fetchAllRows("predictions");
+
     const { data: odds } = await supabase.from("match_odds").select("*");
     const { data: scores } = await supabase.from("match_scores").select("*");
 
@@ -450,9 +477,7 @@ function Siralama() {
       .from("turkey_predictions")
       .select("*");
 
-    const { data: turkeyOdds } = await supabase
-      .from("turkey_odds")
-      .select("*");
+    const { data: turkeyOdds } = await supabase.from("turkey_odds").select("*");
 
     const { data: realTurkeyData } = await supabase
       .from("real_turkey_result")
@@ -461,204 +486,146 @@ function Siralama() {
 
     const realChampion = realChampionData?.[0]?.champion || "";
     const realTurkeyResult = realTurkeyData?.[0]?.result_name || "";
-const seededPick = (items, seedText) => {
-  if (!items || items.length === 0) return null;
 
-  let seed = 0;
-  for (let i = 0; i < seedText.length; i++) {
-    seed += seedText.charCodeAt(i);
-  }
+    const addMatchdayPoint = (matchId, point, totals) => {
+      const match = allMatches.find((m) => Number(m.id) === Number(matchId));
+      if (!match) return;
 
-  return items[seed % items.length];
-};
+      if (Number(match.matchday) === 1) totals.matchday1Points += point;
+      if (Number(match.matchday) === 2) totals.matchday2Points += point;
+      if (Number(match.matchday) === 3) totals.matchday3Points += point;
+    };
 
-const pickOdd = (items, mode, seedText) => {
-  const cleanItems = items.filter(
-    (item) => item && Number(item.odd) > 0
-  );
+    const seededPick = (items, seedText) => {
+      if (!items || items.length === 0) return null;
 
-  if (cleanItems.length === 0) return null;
+      let seed = 0;
+      for (let i = 0; i < seedText.length; i++) {
+        seed += seedText.charCodeAt(i);
+      }
 
-  const target =
-    mode === "banko"
-      ? Math.min(...cleanItems.map((i) => Number(i.odd)))
-      : Math.max(...cleanItems.map((i) => Number(i.odd)));
+      return items[seed % items.length];
+    };
 
-  const tiedItems = cleanItems.filter(
-    (item) => Number(item.odd) === Number(target)
-  );
+    const pickOdd = (items, mode, seedText) => {
+      const cleanItems = items.filter((item) => item && Number(item.odd) > 0);
+      if (cleanItems.length === 0) return null;
 
-  return seededPick(tiedItems, seedText);
-};
+      const target =
+        mode === "banko"
+          ? Math.min(...cleanItems.map((i) => Number(i.odd)))
+          : Math.max(...cleanItems.map((i) => Number(i.odd)));
 
-const calculateVirtualUser = (name, mode) => {
-  let matchPoints = 0;
-  let groupPoints = 0;
-  let championPoints = 0;
-  let turkeyPoints = 0;
-  let matchday1Points = 0;
-  let matchday2Points = 0;
-  let matchday3Points = 0;
+      const tiedItems = cleanItems.filter(
+        (item) => Number(item.odd) === Number(target)
+      );
 
-  let correct = 0;
-  let total = 0;
+      return seededPick(tiedItems, seedText);
+    };
 
-  // MAÇLAR
-  (scores || []).forEach((score) => {
-    const matchId = Number(score.match_id);
-    const homeScore = Number(score.home_score);
-    const awayScore = Number(score.away_score);
+    const calculateVirtualUser = (name, mode) => {
+      let matchPoints = 0;
+      let groupPoints = 0;
+      let championPoints = 0;
+      let turkeyPoints = 0;
 
-    const matchOdd = (odds || []).find(
-      (o) => Number(o.match_id) === matchId
-    );
+      const matchdayTotals = {
+        matchday1Points: 0,
+        matchday2Points: 0,
+        matchday3Points: 0,
+      };
 
-    if (!matchOdd) return;
+      let correct = 0;
+      let total = 0;
 
-    const realMS = getMSResult(homeScore, awayScore);
-    const realOU = getOUResult(homeScore, awayScore);
+      (scores || []).forEach((score) => {
+        const matchId = Number(score.match_id);
+        const homeScore = Number(score.home_score);
+        const awayScore = Number(score.away_score);
 
-    const msPick = pickOdd(
-      [
-        { value: 1, odd: matchOdd.ms1 },
-        { value: 0, odd: matchOdd.ms0 },
-        { value: 2, odd: matchOdd.ms2 },
-      ],
-      mode,
-      `${name}-MS-${matchId}`
-    );
+        const matchOdd = (odds || []).find(
+          (o) => Number(o.match_id) === matchId
+        );
 
-    const ouPick = pickOdd(
-      [
-        { value: "Alt", odd: matchOdd.under },
-        { value: "Üst", odd: matchOdd.over },
-      ],
-      mode,
-      `${name}-OU-${matchId}`
-    );
+        if (!matchOdd) return;
 
-    total += 2;
+        const realMS = getMSResult(homeScore, awayScore);
+        const realOU = getOUResult(homeScore, awayScore);
 
-if (msPick && Number(msPick.value) === realMS) {
-  correct += 1;
+        const msPick = pickOdd(
+          [
+            { value: 1, odd: matchOdd.ms1 },
+            { value: 0, odd: matchOdd.ms0 },
+            { value: 2, odd: matchOdd.ms2 },
+          ],
+          mode,
+          `${name}-MS-${matchId}`
+        );
 
-  const addedPoint = Number(msPick.odd || 0);
-  matchPoints += addedPoint;
+        const ouPick = pickOdd(
+          [
+            { value: "Alt", odd: matchOdd.under },
+            { value: "Üst", odd: matchOdd.over },
+          ],
+          mode,
+          `${name}-OU-${matchId}`
+        );
 
-  const match = matches.find((m) => Number(m.id) === matchId);
+        total += 2;
 
-  if (match) {
-    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
-    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
-    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
-  }
-}
+        if (msPick && Number(msPick.value) === realMS) {
+          correct += 1;
 
-if (ouPick && ouPick.value === realOU) {
-  correct += 1;
+          const addedPoint = Number(msPick.odd || 0);
+          matchPoints += addedPoint;
+          addMatchdayPoint(matchId, addedPoint, matchdayTotals);
+        }
 
-  const addedPoint = Number(ouPick.odd || 0);
-  matchPoints += addedPoint;
+        if (
+          ouPick &&
+          String(ouPick.value).toLowerCase() === String(realOU).toLowerCase()
+        ) {
+          correct += 1;
 
-  const match = matches.find((m) => Number(m.id) === matchId);
+          const addedPoint = Number(ouPick.odd || 0);
+          matchPoints += addedPoint;
+          addMatchdayPoint(matchId, addedPoint, matchdayTotals);
+        }
+      });
 
-  if (match) {
-    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
-    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
-    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
-  }
-}
-  });
+      const totalPoints =
+        matchPoints + groupPoints + championPoints + turkeyPoints;
 
-  // GRUP LİDERLERİ
-  (realGroupWinners || []).forEach((realGroup) => {
-    if (!realGroup.winner) return;
+      return {
+        name,
+        matchPoints: Number(matchPoints.toFixed(2)),
+        matchday1Points: Number(matchdayTotals.matchday1Points.toFixed(2)),
+        matchday2Points: Number(matchdayTotals.matchday2Points.toFixed(2)),
+        matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
+        groupPoints: Number(groupPoints.toFixed(2)),
+        championPoints: Number(championPoints.toFixed(2)),
+        turkeyPoints: Number(turkeyPoints.toFixed(2)),
+        totalPoints: Number(totalPoints.toFixed(2)),
+        success: total === 0 ? 0 : Number(((correct / total) * 100).toFixed(2)),
+        correctText: total === 0 ? "0/0" : `${correct}/${total}`,
+      };
+    };
 
-    const groupItems = (groupOdds || [])
-      .filter((o) => o.group_name === realGroup.group_name)
-      .map((o) => ({
-        value: o.team_name,
-        odd: o.odd,
-      }));
-
-    const pick = pickOdd(
-      groupItems,
-      mode,
-      `${name}-GROUP-${realGroup.group_name}`
-    );
-
-    total += 1;
-
-    if (pick && pick.value === realGroup.winner) {
-      correct += 1;
-      groupPoints += Number(pick.odd || 0);
-    }
-  });
-
-  // ŞAMPİYON
-  if (realChampion) {
-    const championItems = (championOdds || []).map((o) => ({
-      value: o.team_name,
-      odd: o.odd,
-    }));
-
-    const pick = pickOdd(championItems, mode, `${name}-CHAMPION`);
-
-    total += 1;
-
-    if (pick && pick.value === realChampion) {
-      correct += 1;
-      championPoints += Number(pick.odd || 0);
-    }
-  }
-
-  // TÜRKİYE
-  if (realTurkeyResult) {
-    const turkeyItems = (turkeyOdds || []).map((o) => ({
-      value: o.result_name,
-      odd: o.odd,
-    }));
-
-    const pick = pickOdd(turkeyItems, mode, `${name}-TURKEY`);
-
-    total += 1;
-
-    if (pick && pick.value === realTurkeyResult) {
-      correct += 1;
-      turkeyPoints += Number(pick.odd || 0);
-    }
-  }
-
-  const totalPoints =
-    matchPoints + groupPoints + championPoints + turkeyPoints;
-
-  return {
-    name,
-    matchPoints: Number(matchPoints.toFixed(2)),
-    matchday1Points: Number(matchday1Points.toFixed(2)),
-    matchday2Points: Number(matchday2Points.toFixed(2)),
-    matchday3Points: Number(matchday3Points.toFixed(2)),
-    groupPoints: Number(groupPoints.toFixed(2)),
-    championPoints: Number(championPoints.toFixed(2)),
-    turkeyPoints: Number(turkeyPoints.toFixed(2)),
-    totalPoints: Number(totalPoints.toFixed(2)),
-    success: total === 0 ? 0 : Number(((correct / total) * 100).toFixed(2)),
-    correctText: total === 0 ? "0/0" : `${correct}/${total}`,
-  };
-};
     const standings = (users || []).map((user) => {
       let matchPoints = 0;
       let groupPoints = 0;
       let championPoints = 0;
       let turkeyPoints = 0;
-      let matchday1Points = 0;
-      let matchday2Points = 0;
-      let matchday3Points = 0;
+
+      const matchdayTotals = {
+        matchday1Points: 0,
+        matchday2Points: 0,
+        matchday3Points: 0,
+      };
 
       let correct = 0;
       let total = 0;
 
-      // MAÇ PUANLARI
       (scores || []).forEach((score) => {
         const matchId = Number(score.match_id);
         const homeScore = Number(score.home_score);
@@ -666,7 +633,7 @@ if (ouPick && ouPick.value === realOU) {
 
         const userPrediction = (predictions || []).find(
           (p) =>
-            p.user_name === user.username &&
+            String(p.user_name).trim() === String(user.username).trim() &&
             Number(p.match_id) === matchId
         );
 
@@ -683,110 +650,34 @@ if (ouPick && ouPick.value === realOU) {
 
         if (!userPrediction) return;
 
-if (Number(userPrediction.ms) === realMS) {
-  correct += 1;
-
-  let addedPoint = 0;
-
-  if (realMS === 1) addedPoint = Number(matchOdd.ms1 || 0);
-  if (realMS === 0) addedPoint = Number(matchOdd.ms0 || 0);
-  if (realMS === 2) addedPoint = Number(matchOdd.ms2 || 0);
-
-  matchPoints += addedPoint;
-
-  const match = matches.find((m) => Number(m.id) === matchId);
-
-  if (match) {
-    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
-    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
-    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
-  }
-}
-
-if (userPrediction.ou?.toLowerCase() === realOU.toLowerCase()) {
-  correct += 1;
-
-  let addedPoint = 0;
-
-  if (realOU === "Alt") addedPoint = Number(matchOdd.under || 0);
-  if (realOU === "Üst") addedPoint = Number(matchOdd.over || 0);
-
-  matchPoints += addedPoint;
-
-  const match = matches.find((m) => Number(m.id) === matchId);
-
-  if (match) {
-    if (Number(match.matchday) === 1) matchday1Points += addedPoint;
-    if (Number(match.matchday) === 2) matchday2Points += addedPoint;
-    if (Number(match.matchday) === 3) matchday3Points += addedPoint;
-  }
-}
-      });
-
-      // GRUP BİRİNCİLİĞİ PUANLARI
-      (realGroupWinners || []).forEach((realGroup) => {
-        if (!realGroup.winner) return;
-
-        total += 1;
-
-        const userGroupPrediction = (groupPredictions || []).find(
-          (p) =>
-            p.user_name === user.username &&
-            p.group_name === realGroup.group_name
-        );
-
-        if (!userGroupPrediction) return;
-
-        if (userGroupPrediction.team_name === realGroup.winner) {
+        if (Number(userPrediction.ms) === realMS) {
           correct += 1;
 
-          const oddRow = (groupOdds || []).find(
-            (o) =>
-              o.group_name === realGroup.group_name &&
-              o.team_name === realGroup.winner
-          );
+          let addedPoint = 0;
 
-          groupPoints += Number(oddRow?.odd || 0);
+          if (realMS === 1) addedPoint = Number(matchOdd.ms1 || 0);
+          if (realMS === 0) addedPoint = Number(matchOdd.ms0 || 0);
+          if (realMS === 2) addedPoint = Number(matchOdd.ms2 || 0);
+
+          matchPoints += addedPoint;
+          addMatchdayPoint(matchId, addedPoint, matchdayTotals);
+        }
+
+        if (
+          String(userPrediction.ou).toLowerCase() ===
+          String(realOU).toLowerCase()
+        ) {
+          correct += 1;
+
+          let addedPoint = 0;
+
+          if (realOU === "Alt") addedPoint = Number(matchOdd.under || 0);
+          if (realOU === "Üst") addedPoint = Number(matchOdd.over || 0);
+
+          matchPoints += addedPoint;
+          addMatchdayPoint(matchId, addedPoint, matchdayTotals);
         }
       });
-
-      // ŞAMPİYONLUK PUANI
-      if (realChampion) {
-        total += 1;
-
-        const userChampionPrediction = (championPredictions || []).find(
-          (p) => p.user_name === user.username
-        );
-
-        if (userChampionPrediction?.team_name === realChampion) {
-          correct += 1;
-
-          const oddRow = (championOdds || []).find(
-            (o) => o.team_name === realChampion
-          );
-
-          championPoints += Number(oddRow?.odd || 0);
-        }
-      }
-
-      // TÜRKİYE PUANI
-      if (realTurkeyResult) {
-        total += 1;
-
-        const userTurkeyPrediction = (turkeyPredictions || []).find(
-          (p) => p.user_name === user.username
-        );
-
-        if (userTurkeyPrediction?.result_name === realTurkeyResult) {
-          correct += 1;
-
-          const oddRow = (turkeyOdds || []).find(
-            (o) => o.result_name === realTurkeyResult
-          );
-
-          turkeyPoints += Number(oddRow?.odd || 0);
-        }
-      }
 
       const totalPoints =
         matchPoints + groupPoints + championPoints + turkeyPoints;
@@ -794,22 +685,20 @@ if (userPrediction.ou?.toLowerCase() === realOU.toLowerCase()) {
       return {
         name: user.username,
         matchPoints: Number(matchPoints.toFixed(2)),
-        matchday1Points: Number(matchday1Points.toFixed(2)),
-        matchday2Points: Number(matchday2Points.toFixed(2)),
-        matchday3Points: Number(matchday3Points.toFixed(2)),
+        matchday1Points: Number(matchdayTotals.matchday1Points.toFixed(2)),
+        matchday2Points: Number(matchdayTotals.matchday2Points.toFixed(2)),
+        matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
         totalPoints: Number(totalPoints.toFixed(2)),
         success: total === 0 ? 0 : Number(((correct / total) * 100).toFixed(2)),
-        correctText:
-  total === 0
-    ? "0/0"
-    : `${correct}/${total}`,
+        correctText: total === 0 ? "0/0" : `${correct}/${total}`,
       };
     });
-standings.push(calculateVirtualUser("Banko", "banko"));
-standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
+
+    standings.push(calculateVirtualUser("Banko", "banko"));
+    standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
 
     const sorted = standings
       .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -844,48 +733,48 @@ standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
         </thead>
 
         <tbody>
-  {tableUsers.map((user) => (
-    <tr key={user.name} className="border-b border-slate-800">
-      <td className="py-4 px-2">{user.rank}</td>
-      <td className="py-4 px-2 font-semibold">{user.name}</td>
+          {tableUsers.map((user) => (
+            <tr key={user.name} className="border-b border-slate-800">
+              <td className="py-4 px-2">{user.rank}</td>
+              <td className="py-4 px-2 font-semibold">{user.name}</td>
 
-      <td className="py-4 px-2 text-emerald-400 font-extrabold">
-        {user.totalPoints}
-      </td>
+              <td className="py-4 px-2 text-emerald-400 font-extrabold">
+                {user.totalPoints}
+              </td>
 
-      <td className="py-4 px-2">%{user.success}</td>
-      <td className="py-4 px-2">{user.correctText}</td>
+              <td className="py-4 px-2">%{user.success}</td>
+              <td className="py-4 px-2">{user.correctText}</td>
 
-      <td className="py-4 px-2 text-slate-300 font-bold">
-  {user.matchday1Points}
-</td>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.matchday1Points}
+              </td>
 
-<td className="py-4 px-2 text-slate-300 font-bold">
-  {user.matchday2Points}
-</td>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.matchday2Points}
+              </td>
 
-<td className="py-4 px-2 text-slate-300 font-bold">
-  {user.matchday3Points}
-</td>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.matchday3Points}
+              </td>
 
-      <td className="py-4 px-2 text-slate-300 font-bold">
-        {user.matchPoints}
-      </td>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.matchPoints}
+              </td>
 
-      <td className="py-4 px-2 text-slate-300 font-bold">
-        {user.groupPoints}
-      </td>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.groupPoints}
+              </td>
 
-      <td className="py-4 px-2 text-slate-300 font-bold">
-        {user.championPoints}
-      </td>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.championPoints}
+              </td>
 
-      <td className="py-4 px-2 text-slate-300 font-bold">
-        {user.turkeyPoints}
-      </td>
-    </tr>
-  ))}
-</tbody>
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.turkeyPoints}
+              </td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
@@ -1692,46 +1581,82 @@ function KatilimciTahminleri() {
   const longTermRevealTime = new Date("2026-06-11T19:15:00");
   const showLongTermPredictions = new Date() >= longTermRevealTime;
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+useEffect(() => {
+  fetchData();
+}, []);
 
-  const fetchData = async () => {
-    const { data: predictionData } = await supabase
-  .from("predictions")
-  .select("*")
-  .range(0, 10000);
-    const { data: userData } = await supabase.from("users").select("*");
-    const { data: oddsData } = await supabase.from("match_odds").select("*");
-    const { data: scoreData } = await supabase.from("match_scores").select("*");
+useEffect(() => {
+  fetchData();
+}, []);
 
-    const { data: groupPredictionData } = await supabase
-      .from("group_predictions")
-      .select("*");
+const fetchAllRows = async (tableName) => {
+  let allRows = [];
+  let from = 0;
+  const size = 1000;
 
-    const { data: championPredictionData } = await supabase
-      .from("champion_predictions")
-      .select("*");
+  while (true) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select("*")
+      .range(from, from + size - 1);
 
-    const { data: turkeyPredictionData } = await supabase
-      .from("turkey_predictions")
-      .select("*");
+    if (error) {
+      console.log(`${tableName} alınamadı:`, error);
+      break;
+    }
 
-    const { data: groupOddsData } = await supabase.from("group_odds").select("*");
-    const { data: championOddsData } = await supabase.from("champion_odds").select("*");
-    const { data: turkeyOddsData } = await supabase.from("turkey_odds").select("*");
+    allRows = [...allRows, ...(data || [])];
 
-    setAllPredictions(predictionData || []);
-    setUsers(userData || []);
-    setDbOdds(oddsData || []);
-    setDbScores(scoreData || []);
-    setGroupPredictions(groupPredictionData || []);
-    setChampionPredictions(championPredictionData || []);
-    setTurkeyPredictions(turkeyPredictionData || []);
-    setGroupOdds(groupOddsData || []);
-    setChampionOdds(championOddsData || []);
-    setTurkeyOdds(turkeyOddsData || []);
-  };
+    if (!data || data.length < size) break;
+
+    from += size;
+  }
+
+  return allRows;
+};
+
+const fetchData = async () => {
+  const predictionData = await fetchAllRows("predictions");
+
+  const { data: userData } = await supabase.from("users").select("*");
+  const { data: oddsData } = await supabase.from("match_odds").select("*");
+  const { data: scoreData } = await supabase.from("match_scores").select("*");
+
+  const { data: groupPredictionData } = await supabase
+    .from("group_predictions")
+    .select("*");
+
+  const { data: championPredictionData } = await supabase
+    .from("champion_predictions")
+    .select("*");
+
+  const { data: turkeyPredictionData } = await supabase
+    .from("turkey_predictions")
+    .select("*");
+
+  const { data: groupOddsData } = await supabase
+    .from("group_odds")
+    .select("*");
+
+  const { data: championOddsData } = await supabase
+    .from("champion_odds")
+    .select("*");
+
+  const { data: turkeyOddsData } = await supabase
+    .from("turkey_odds")
+    .select("*");
+
+  setAllPredictions(predictionData || []);
+  setUsers(userData || []);
+  setDbOdds(oddsData || []);
+  setDbScores(scoreData || []);
+  setGroupPredictions(groupPredictionData || []);
+  setChampionPredictions(championPredictionData || []);
+  setTurkeyPredictions(turkeyPredictionData || []);
+  setGroupOdds(groupOddsData || []);
+  setChampionOdds(championOddsData || []);
+  setTurkeyOdds(turkeyOddsData || []);
+};
 
   const isMatchPredictionVisible = (match) => {
     const matchDate = new Date(
@@ -1741,11 +1666,13 @@ function KatilimciTahminleri() {
     return new Date() >= deadline;
   };
 
-  const getPrediction = (username, matchId) => {
-    return allPredictions.find(
-      (p) => p.user_name === username && Number(p.match_id) === Number(matchId)
-    );
-  };
+const getPrediction = (username, matchId) => {
+  return allPredictions.find(
+    (p) =>
+      String(p.user_name).trim() === String(username).trim() &&
+      Number(p.match_id) === Number(matchId)
+  );
+};
 
   const getMatchOdds = (matchId) => {
     return dbOdds.find((odd) => Number(odd.match_id) === Number(matchId));
