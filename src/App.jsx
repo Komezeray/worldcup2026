@@ -448,7 +448,18 @@ function Siralama() {
 
     const { data: users } = await supabase.from("users").select("*");
     const predictions = await fetchAllRows("predictions");
+    const latestPredictionsMap = new Map();
 
+(predictions || []).forEach((p) => {
+  const key = `${String(p.user_name).trim()}-${Number(p.match_id)}`;
+  const existing = latestPredictionsMap.get(key);
+
+  if (!existing || Number(p.id) > Number(existing.id)) {
+    latestPredictionsMap.set(key, p);
+  }
+});
+
+const cleanPredictions = Array.from(latestPredictionsMap.values());
     const { data: odds } = await supabase.from("match_odds").select("*");
     const { data: scores } = await supabase.from("match_scores").select("*");
 
@@ -633,7 +644,7 @@ function Siralama() {
         const homeScore = Number(score.home_score);
         const awayScore = Number(score.away_score);
 
-        const userPrediction = (predictions || []).find(
+        const userPrediction = (cleanPredictions || []).find(
           (p) =>
             String(p.user_name).trim() === String(user.username).trim() &&
             Number(p.match_id) === matchId
