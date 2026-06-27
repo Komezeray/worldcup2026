@@ -800,14 +800,43 @@ function MacBulteni() {
   const [now, setNow] = useState(new Date());
   const [dbOdds, setDbOdds] = useState([]);
 
-  const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
+const [dbMatches, setDbMatches] = useState([]);
 
-  const allMatches = [...matches, ...customMatches];
+const allMatches = dbMatches.length > 0 ? dbMatches : matches;
 
   React.useEffect(() => {
+    fetchDbMatches();
     fetchDbOdds();
     fetchSavedPredictions();
   }, []);
+
+const fetchDbMatches = async () => {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("*")
+    .order("date_order", { ascending: true })
+    .order("time", { ascending: true });
+
+  if (error) {
+    console.log("Maçlar alınamadı:", error);
+    return;
+  }
+
+  const formatted = (data || []).map((m) => ({
+    id: m.id,
+    home: m.home,
+    away: m.away,
+    group: m.group_name || "",
+    stage: m.stage,
+    matchday: m.matchday,
+    date: m.date,
+    dateOrder: m.date_order,
+    time: m.time,
+    isCustom: m.stage !== "Grup",
+  }));
+
+  setDbMatches(formatted);
+};  
 
   const fetchDbOdds = async () => {
     const { data, error } = await supabase.from("match_odds").select("*");
