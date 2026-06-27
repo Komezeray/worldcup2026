@@ -2902,9 +2902,40 @@ function Istatistik() {
 }
 
 function AdminPanel() {
-  const [customMatches, setCustomMatches] = useState(
-    JSON.parse(localStorage.getItem("customMatches")) || []
-  );
+const [customMatches, setCustomMatches] = useState([]);
+
+useEffect(() => {
+  fetchCustomMatches();
+}, []);
+
+const fetchCustomMatches = async () => {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("*")
+    .neq("stage", "Grup")
+    .order("date_order", { ascending: true })
+    .order("time", { ascending: true });
+
+  if (error) {
+    console.log("Maçlar alınamadı:", error);
+    return;
+  }
+
+  const formatted = (data || []).map((m) => ({
+    id: m.id,
+    isCustom: true,
+    stage: m.stage,
+    group: m.group_name || "",
+    matchday: m.matchday || "",
+    date: m.date,
+    dateOrder: m.date_order,
+    time: m.time,
+    home: m.home,
+    away: m.away,
+  }));
+
+  setCustomMatches(formatted);
+};
 
   const [newMatch, setNewMatch] = useState({
     stage: "Son 32",
@@ -3051,18 +3082,61 @@ if (realTurkeyResult) {
     alert("Kayıt sırasında hata oluştu.");
   }
 };
-  const addCustomMatch = () => {
-    if (
-      !newMatch.stage ||
-      !newMatch.home ||
-      !newMatch.away ||
-      !newMatch.date ||
-      !newMatch.dateOrder ||
-      !newMatch.time
-    ) {
-      alert("Lütfen maç ekleme alanındaki tüm bilgileri doldur.");
-      return;
-    }
+const addCustomMatch = async () => {
+  if (
+    !newMatch.stage ||
+    !newMatch.home ||
+    !newMatch.away ||
+    !newMatch.date ||
+    !newMatch.dateOrder ||
+    !newMatch.time
+  ) {
+    alert("Lütfen maç ekleme alanındaki tüm bilgileri doldur.");
+    return;
+  }
+
+  const createdMatch = {
+    id: Date.now(),
+    home: newMatch.home,
+    away: newMatch.away,
+    group_name: "",
+    stage: newMatch.stage,
+    matchday: null,
+    date: newMatch.date,
+    date_order: newMatch.dateOrder,
+    time: newMatch.time,
+  };
+
+  const { error } = await supabase.from("matches").insert(createdMatch);
+
+  if (error) {
+    console.log("Maç ekleme hatası:", error);
+    alert("Maç eklenirken hata oluştu.");
+    return;
+  }
+
+  await supabase.from("match_odds").insert({
+    match_id: createdMatch.id,
+    ms1: 0,
+    ms0: 0,
+    ms2: 0,
+    under: 0,
+    over: 0,
+  });
+
+  await fetchCustomMatches();
+
+  setNewMatch({
+    stage: "Son 32",
+    home: "",
+    away: "",
+    date: "",
+    dateOrder: "",
+    time: "",
+  });
+
+  alert("Yeni maç Supabase'e eklendi.");
+};
 
     const createdMatch = {
       id: Date.now(),
@@ -3096,18 +3170,18 @@ if (realTurkeyResult) {
     alert("Yeni maç eklendi.");
   };
 
-  const deleteCustomMatch = (matchId) => {
-    const confirmed = confirm("Bu maçı silmek istiyor musun?");
+const deleteCustomMatch = async (matchId) => {
+  const confirmed = confirm("Bu maçı silmek istiyor musun?");
+  if (!confirmed) return;
 
-    if (!confirmed) return;
+  await supabase.from("match_odds").delete().eq("match_id", Number(matchId));
+  await supabase.from("match_scores").delete().eq("match_id", Number(matchId));
+  await supabase.from("matches").delete().eq("id", Number(matchId));
 
-    const updated = customMatches.filter((match) => match.id !== matchId);
+  await fetchCustomMatches();
 
-    setCustomMatches(updated);
-    localStorage.setItem("customMatches", JSON.stringify(updated));
-
-    alert("Maç silindi.");
-  };
+  alert("Maç silindi.");
+};
 
   const updateMatchOdd = (matchId, key, value) => {
     setMatchOdds((prev) => ({
