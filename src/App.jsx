@@ -3138,37 +3138,7 @@ const addCustomMatch = async () => {
   alert("Yeni maç Supabase'e eklendi.");
 };
 
-    const createdMatch = {
-      id: Date.now(),
-      isCustom: true,
-      stage: newMatch.stage,
-      group: "",
-      matchday: "",
-      date: newMatch.date,
-      dateOrder: newMatch.dateOrder,
-      time: newMatch.time,
-      home: newMatch.home,
-      away: newMatch.away,
-      odds: { ms1: "", ms0: "", ms2: "", over: "", under: "" },
-      score: { home: "", away: "" },
-    };
-
-    const updated = [...customMatches, createdMatch];
-
-    setCustomMatches(updated);
-    localStorage.setItem("customMatches", JSON.stringify(updated));
-
-    setNewMatch({
-      stage: "Son 32",
-      home: "",
-      away: "",
-      date: "",
-      dateOrder: "",
-      time: "",
-    });
-
-    alert("Yeni maç eklendi.");
-  };
+   
 
 const deleteCustomMatch = async (matchId) => {
   const confirmed = confirm("Bu maçı silmek istiyor musun?");
