@@ -1303,6 +1303,7 @@ function MacTahminlerim() {
 
   const [myPredictions, setMyPredictions] = useState([]);
   const [dbOdds, setDbOdds] = useState([]);
+  const [dbMatches, setDbMatches] = useState([]);
 
   const [myGroupPredictions, setMyGroupPredictions] = useState([]);
   const [groupOdds, setGroupOdds] = useState([]);
