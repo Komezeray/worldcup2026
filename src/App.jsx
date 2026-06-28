@@ -2341,10 +2341,12 @@ function GrupLiderleri() {
 
   const [myGroupPredictions, setMyGroupPredictions] = useState({});
   const [groupOdds, setGroupOdds] = useState({});
+  const [realGroupWinners, setRealGroupWinners] = useState([]);
 
   useEffect(() => {
     fetchMyGroupPredictions();
     fetchGroupOdds();
+    fetchRealGroupWinners();
   }, []);
 
   const fetchGroupOdds = async () => {
@@ -2356,12 +2358,24 @@ function GrupLiderleri() {
     }
 
     const oddsObj = {};
-
     (data || []).forEach((item) => {
       oddsObj[`${item.group_name}-${item.team_name}`] = item.odd;
     });
 
     setGroupOdds(oddsObj);
+  };
+
+  const fetchRealGroupWinners = async () => {
+    const { data, error } = await supabase
+      .from("real_group_winners")
+      .select("*");
+
+    if (error) {
+      console.log("Gerçek grup liderleri alınamadı:", error);
+      return;
+    }
+
+    setRealGroupWinners(data || []);
   };
 
   const fetchMyGroupPredictions = async () => {
@@ -2376,12 +2390,17 @@ function GrupLiderleri() {
     }
 
     const predictionsObj = {};
-
     (data || []).forEach((item) => {
       predictionsObj[item.group_name] = item.team_name;
     });
 
     setMyGroupPredictions(predictionsObj);
+  };
+
+  const getRealWinner = (groupName) => {
+    return realGroupWinners.find(
+      (r) => String(r.group_name).trim() === String(groupName).trim()
+    );
   };
 
   const selectPrediction = (group, team) => {
@@ -2468,15 +2487,12 @@ function GrupLiderleri() {
 
           <div className="space-y-3">
             {teams.map((team) => {
-              const realWinner = (realGroupWinners || []).find(
-  (r) => String(r.group_name).trim() === String(groupName).trim()
-);
-
-const isCorrect =
-  realWinner &&
-  String(team).trim() === String(realWinner.winner).trim();
               const oddKey = `${groupName}-${team}`;
               const selected = myGroupPredictions[groupName] === team;
+              const realWinner = getRealWinner(groupName);
+              const isCorrect =
+                realWinner &&
+                String(team).trim() === String(realWinner.winner).trim();
 
               return (
                 <button
@@ -2484,27 +2500,28 @@ const isCorrect =
                   disabled={closed}
                   onClick={() => selectPrediction(groupName, team)}
                   className={`w-full flex items-center justify-between gap-3 rounded-xl p-3 border ${
-selected
-  ? realWinner
-    ? isCorrect
-      ? "border-emerald-500 bg-emerald-600/20"
-      : "border-red-500 bg-red-600/20"
-    : "border-emerald-500 bg-emerald-600/20"
-  : closed
-  ? "border-slate-700 bg-slate-800 opacity-60 cursor-not-allowed"
-  : "border-slate-700 bg-slate-800"
+                    selected
+                      ? realWinner
+                        ? isCorrect
+                          ? "border-emerald-500 bg-emerald-600/20"
+                          : "border-red-500 bg-red-600/20"
+                        : "border-emerald-500 bg-emerald-600/20"
+                      : closed
+                      ? "border-slate-700 bg-slate-800 opacity-60 cursor-not-allowed"
+                      : "border-slate-700 bg-slate-800"
                   }`}
                 >
                   <span className="font-semibold">{team}</span>
+
                   <span
-  className={`font-bold ${
-    realWinner
-      ? isCorrect
-        ? "text-emerald-400"
-        : "text-red-400"
-      : "text-emerald-400"
-  }`}
->
+                    className={`font-bold ${
+                      selected && realWinner
+                        ? isCorrect
+                          ? "text-emerald-400"
+                          : "text-red-400"
+                        : "text-emerald-400"
+                    }`}
+                  >
                     {groupOdds[oddKey] || "-"}
                   </span>
                 </button>
