@@ -2257,12 +2257,33 @@ const getGroupPredictionClass = (groupName, teamName) => {
                     const odd = team ? getGroupOdd(groupName, team) : "-";
 
                     return (
-                      <td
-                        key={groupName}
-                        className="p-4 text-center text-emerald-400 font-bold"
-                      >
-                        {team ? `${team} (${odd})` : "-"}
-                      </td>
+{(() => {
+  const realWinner = (realGroupWinners || []).find(
+    (r) => String(r.group_name).trim() === String(groupName).trim()
+  );
+
+  const isCorrect =
+    realWinner &&
+    team &&
+    String(team).trim() === String(realWinner.winner).trim();
+
+  return (
+    <td
+      key={groupName}
+      className={`p-4 text-center font-bold ${
+        !team
+          ? "text-slate-400"
+          : !realWinner
+          ? "text-emerald-400"
+          : isCorrect
+          ? "text-emerald-400"
+          : "text-red-400"
+      }`}
+    >
+      {team ? `${team} (${odd})` : "-"}
+    </td>
+  );
+})()}
                     );
                   })}
                 </tr>
