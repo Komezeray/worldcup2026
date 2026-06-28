@@ -606,6 +606,30 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
         }
       });
 
+      // SANAL KULLANICI GRUP PUANLARI
+(realGroupWinners || []).forEach((realGroup) => {
+  const groupTeams = (groupOdds || []).filter(
+    (o) => String(o.group_name).trim() === String(realGroup.group_name).trim()
+  );
+
+  const groupPick = pickOdd(
+    groupTeams.map((o) => ({
+      value: o.team_name,
+      odd: o.odd,
+    })),
+    mode,
+    `${name}-GROUP-${realGroup.group_name}`
+  );
+
+  if (!groupPick) return;
+
+  if (
+    String(groupPick.value).trim() === String(realGroup.winner).trim()
+  ) {
+    groupPoints += Number(groupPick.odd || 0);
+  }
+});
+
       const totalPoints =
         matchPoints + groupPoints + championPoints + turkeyPoints;
 
