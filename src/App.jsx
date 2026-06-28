@@ -2450,6 +2450,13 @@ function GrupLiderleri() {
 
           <div className="space-y-3">
             {teams.map((team) => {
+              const realWinner = (realGroupWinners || []).find(
+  (r) => String(r.group_name).trim() === String(groupName).trim()
+);
+
+const isCorrect =
+  realWinner &&
+  String(team).trim() === String(realWinner.winner).trim();
               const oddKey = `${groupName}-${team}`;
               const selected = myGroupPredictions[groupName] === team;
 
@@ -2459,15 +2466,27 @@ function GrupLiderleri() {
                   disabled={closed}
                   onClick={() => selectPrediction(groupName, team)}
                   className={`w-full flex items-center justify-between gap-3 rounded-xl p-3 border ${
-                    selected
-                      ? "border-emerald-500 bg-emerald-600/20"
-                      : closed
-                      ? "border-slate-700 bg-slate-800 opacity-60 cursor-not-allowed"
-                      : "border-slate-700 bg-slate-800"
+selected
+  ? realWinner
+    ? isCorrect
+      ? "border-emerald-500 bg-emerald-600/20"
+      : "border-red-500 bg-red-600/20"
+    : "border-emerald-500 bg-emerald-600/20"
+  : closed
+  ? "border-slate-700 bg-slate-800 opacity-60 cursor-not-allowed"
+  : "border-slate-700 bg-slate-800"
                   }`}
                 >
                   <span className="font-semibold">{team}</span>
-                  <span className="text-emerald-400 font-bold">
+                  <span
+  className={`font-bold ${
+    realWinner
+      ? isCorrect
+        ? "text-emerald-400"
+        : "text-red-400"
+      : "text-emerald-400"
+  }`}
+>
                     {groupOdds[oddKey] || "-"}
                   </span>
                 </button>
