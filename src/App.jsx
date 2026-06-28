@@ -718,6 +718,8 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
 
 // GRUP LİDERİ PUANLARI
 (realGroupWinners || []).forEach((realGroup) => {
+  total += 1;
+
   const userGroupPrediction = (groupPredictions || []).find(
     (p) =>
       String(p.user_name).trim() === String(user.username).trim() &&
@@ -730,10 +732,13 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
     String(userGroupPrediction.team_name).trim() ===
     String(realGroup.winner).trim()
   ) {
+    correct += 1;
+
     const oddRow = (groupOdds || []).find(
       (o) =>
         String(o.group_name).trim() === String(realGroup.group_name).trim() &&
-        String(o.team_name).trim() === String(userGroupPrediction.team_name).trim()
+        String(o.team_name).trim() ===
+          String(userGroupPrediction.team_name).trim()
     );
 
     groupPoints += Number(oddRow?.odd || 0);
@@ -742,6 +747,8 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
 
 // ŞAMPİYON PUANLARI
 if (realChampion) {
+  total += 1;
+
   const userChampionPrediction = (championPredictions || []).find(
     (p) => String(p.user_name).trim() === String(user.username).trim()
   );
@@ -755,9 +762,10 @@ if (realChampion) {
     predictedChampion &&
     String(predictedChampion).trim() === String(realChampion).trim()
   ) {
+    correct += 1;
+
     const oddRow = (championOdds || []).find(
-      (o) =>
-        String(o.team_name).trim() === String(predictedChampion).trim()
+      (o) => String(o.team_name).trim() === String(predictedChampion).trim()
     );
 
     championPoints += Number(oddRow?.odd || 0);
@@ -766,6 +774,8 @@ if (realChampion) {
 
 // TÜRKİYE PUANLARI
 if (realTurkeyResult) {
+  total += 1;
+
   const userTurkeyPrediction = (turkeyPredictions || []).find(
     (p) => String(p.user_name).trim() === String(user.username).trim()
   );
@@ -779,9 +789,10 @@ if (realTurkeyResult) {
     predictedTurkey &&
     String(predictedTurkey).trim() === String(realTurkeyResult).trim()
   ) {
+    correct += 1;
+
     const oddRow = (turkeyOdds || []).find(
-      (o) =>
-        String(o.result_name).trim() === String(predictedTurkey).trim()
+      (o) => String(o.result_name).trim() === String(predictedTurkey).trim()
     );
 
     turkeyPoints += Number(oddRow?.odd || 0);
