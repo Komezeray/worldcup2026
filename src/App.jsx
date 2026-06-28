@@ -606,78 +606,6 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
         }
       });
 
-      // GRUP LİDERİ PUANLARI
-(realGroupWinners || []).forEach((realGroup) => {
-  const userGroupPrediction = (groupPredictions || []).find(
-    (p) =>
-      String(p.user_name).trim() === String(user.username).trim() &&
-      String(p.group_name).trim() === String(realGroup.group_name).trim()
-  );
-
-  if (!userGroupPrediction) return;
-
-  if (
-    String(userGroupPrediction.team_name).trim() ===
-    String(realGroup.winner).trim()
-  ) {
-    const oddRow = (groupOdds || []).find(
-      (o) =>
-        String(o.group_name).trim() === String(realGroup.group_name).trim() &&
-        String(o.team_name).trim() === String(userGroupPrediction.team_name).trim()
-    );
-
-    groupPoints += Number(oddRow?.odd || 0);
-  }
-});
-
-// ŞAMPİYON PUANLARI
-if (realChampion) {
-  const userChampionPrediction = (championPredictions || []).find(
-    (p) => String(p.user_name).trim() === String(user.username).trim()
-  );
-
-  const predictedChampion =
-    userChampionPrediction?.team_name ||
-    userChampionPrediction?.champion ||
-    userChampionPrediction?.winner;
-
-  if (
-    predictedChampion &&
-    String(predictedChampion).trim() === String(realChampion).trim()
-  ) {
-    const oddRow = (championOdds || []).find(
-      (o) =>
-        String(o.team_name).trim() === String(predictedChampion).trim()
-    );
-
-    championPoints += Number(oddRow?.odd || 0);
-  }
-}
-
-// TÜRKİYE PUANLARI
-if (realTurkeyResult) {
-  const userTurkeyPrediction = (turkeyPredictions || []).find(
-    (p) => String(p.user_name).trim() === String(user.username).trim()
-  );
-
-  const predictedTurkey =
-    userTurkeyPrediction?.result_name ||
-    userTurkeyPrediction?.result ||
-    userTurkeyPrediction?.prediction;
-
-  if (
-    predictedTurkey &&
-    String(predictedTurkey).trim() === String(realTurkeyResult).trim()
-  ) {
-    const oddRow = (turkeyOdds || []).find(
-      (o) =>
-        String(o.result_name).trim() === String(predictedTurkey).trim()
-    );
-
-    turkeyPoints += Number(oddRow?.odd || 0);
-  }
-}
-
       const totalPoints =
         matchPoints + groupPoints + championPoints + turkeyPoints;
 
@@ -763,6 +691,78 @@ if (realTurkeyResult) {
           addMatchdayPoint(matchId, addedPoint, matchdayTotals);
         }
       });
+
+// GRUP LİDERİ PUANLARI
+(realGroupWinners || []).forEach((realGroup) => {
+  const userGroupPrediction = (groupPredictions || []).find(
+    (p) =>
+      String(p.user_name).trim() === String(user.username).trim() &&
+      String(p.group_name).trim() === String(realGroup.group_name).trim()
+  );
+
+  if (!userGroupPrediction) return;
+
+  if (
+    String(userGroupPrediction.team_name).trim() ===
+    String(realGroup.winner).trim()
+  ) {
+    const oddRow = (groupOdds || []).find(
+      (o) =>
+        String(o.group_name).trim() === String(realGroup.group_name).trim() &&
+        String(o.team_name).trim() === String(userGroupPrediction.team_name).trim()
+    );
+
+    groupPoints += Number(oddRow?.odd || 0);
+  }
+});
+
+// ŞAMPİYON PUANLARI
+if (realChampion) {
+  const userChampionPrediction = (championPredictions || []).find(
+    (p) => String(p.user_name).trim() === String(user.username).trim()
+  );
+
+  const predictedChampion =
+    userChampionPrediction?.team_name ||
+    userChampionPrediction?.champion ||
+    userChampionPrediction?.winner;
+
+  if (
+    predictedChampion &&
+    String(predictedChampion).trim() === String(realChampion).trim()
+  ) {
+    const oddRow = (championOdds || []).find(
+      (o) =>
+        String(o.team_name).trim() === String(predictedChampion).trim()
+    );
+
+    championPoints += Number(oddRow?.odd || 0);
+  }
+}
+
+// TÜRKİYE PUANLARI
+if (realTurkeyResult) {
+  const userTurkeyPrediction = (turkeyPredictions || []).find(
+    (p) => String(p.user_name).trim() === String(user.username).trim()
+  );
+
+  const predictedTurkey =
+    userTurkeyPrediction?.result_name ||
+    userTurkeyPrediction?.result ||
+    userTurkeyPrediction?.prediction;
+
+  if (
+    predictedTurkey &&
+    String(predictedTurkey).trim() === String(realTurkeyResult).trim()
+  ) {
+    const oddRow = (turkeyOdds || []).find(
+      (o) =>
+        String(o.result_name).trim() === String(predictedTurkey).trim()
+    );
+
+    turkeyPoints += Number(oddRow?.odd || 0);
+  }
+}
 
       const totalPoints =
         matchPoints + groupPoints + championPoints + turkeyPoints;
