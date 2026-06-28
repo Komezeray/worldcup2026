@@ -1722,6 +1722,7 @@ function KatilimciTahminleri() {
   const [turkeyPredictions, setTurkeyPredictions] = useState([]);
 
   const [groupOdds, setGroupOdds] = useState([]);
+  const [realGroupWinners, setRealGroupWinners] = useState([]);
   const [championOdds, setChampionOdds] = useState([]);
   const [turkeyOdds, setTurkeyOdds] = useState([]);
 
@@ -1735,9 +1736,7 @@ useEffect(() => {
   fetchData();
 }, []);
 
-useEffect(() => {
-  fetchData();
-}, []);
+
 
 const fetchAllRows = async (tableName) => {
   let allRows = [];
@@ -1787,7 +1786,9 @@ const fetchData = async () => {
   const { data: groupOddsData } = await supabase
     .from("group_odds")
     .select("*");
-
+const { data: realGroupWinnerData } = await supabase
+  .from("real_group_winners")
+  .select("*");
   const { data: championOddsData } = await supabase
     .from("champion_odds")
     .select("*");
@@ -1804,6 +1805,7 @@ const fetchData = async () => {
   setChampionPredictions(championPredictionData || []);
   setTurkeyPredictions(turkeyPredictionData || []);
   setGroupOdds(groupOddsData || []);
+  setRealGroupWinners(realGroupWinnerData || []);
   setChampionOdds(championOddsData || []);
   setTurkeyOdds(turkeyOddsData || []);
 };
@@ -1922,6 +1924,22 @@ const getPrediction = (username, matchId) => {
     return odd?.odd || "-";
   };
 
+  const getRealGroupWinner = (groupName) => {
+  return realGroupWinners.find(
+    (r) => String(r.group_name).trim() === String(groupName).trim()
+  );
+};
+
+const getGroupPredictionClass = (groupName, teamName) => {
+  const realWinner = getRealGroupWinner(groupName);
+
+  if (!teamName) return "text-slate-400";
+  if (!realWinner) return "text-emerald-400";
+
+  return String(teamName).trim() === String(realWinner.winner).trim()
+    ? "text-emerald-400"
+    : "text-red-400";
+};
   const getChampionPrediction = (username) => {
     return championPredictions.find((p) => p.user_name === username);
   };
