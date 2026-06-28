@@ -1313,8 +1313,7 @@ function MacTahminlerim() {
   const [myTurkeyPrediction, setMyTurkeyPrediction] = useState(null);
   const [turkeyOdds, setTurkeyOdds] = useState([]);
 
-  const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
-  const allMatches = [...matches, ...customMatches];
+const allMatches = [...matches, ...dbMatches];
 
   useEffect(() => {
     fetchData();
@@ -1328,6 +1327,12 @@ function MacTahminlerim() {
       .order("id", { ascending: false });
 
     const { data: oddsData } = await supabase.from("match_odds").select("*");
+   const { data: matchData } = await supabase
+  .from("matches")
+  .select("*")
+  .neq("stage", "Grup")
+  .order("date_order", { ascending: true })
+  .order("time", { ascending: true }); 
 
     const { data: groupPredictionData } = await supabase
       .from("group_predictions")
@@ -1360,6 +1365,20 @@ function MacTahminlerim() {
 
     setMyPredictions(predictionData || []);
     setDbOdds(oddsData || []);
+    const formattedMatches = (matchData || []).map((m) => ({
+  id: m.id,
+  home: m.home,
+  away: m.away,
+  group: m.group_name || "",
+  stage: m.stage,
+  matchday: m.matchday,
+  date: m.date,
+  dateOrder: m.date_order,
+  time: m.time,
+  isCustom: m.stage !== "Grup",
+}));
+
+setDbMatches(formattedMatches);
     setMyGroupPredictions(groupPredictionData || []);
     setGroupOdds(groupOddsData || []);
     setMyChampion(championPredictionData?.[0] || null);
@@ -1715,6 +1734,7 @@ function KatilimciTahminleri() {
   const [allPredictions, setAllPredictions] = useState([]);
   const [users, setUsers] = useState([]);
   const [dbOdds, setDbOdds] = useState([]);
+  const [dbMatches, setDbMatches] = useState([]);
   const [dbScores, setDbScores] = useState([]);
 
   const [groupPredictions, setGroupPredictions] = useState([]);
@@ -1726,8 +1746,7 @@ function KatilimciTahminleri() {
   const [championOdds, setChampionOdds] = useState([]);
   const [turkeyOdds, setTurkeyOdds] = useState([]);
 
-  const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
-  const allMatches = [...matches, ...customMatches];
+  const allMatches = [...matches, ...dbMatches];
 
   const longTermRevealTime = new Date("2026-06-11T19:15:00");
   const showLongTermPredictions = new Date() >= longTermRevealTime;
