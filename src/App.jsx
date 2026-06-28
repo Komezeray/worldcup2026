@@ -1789,6 +1789,12 @@ const fetchData = async () => {
 
   const { data: userData } = await supabase.from("users").select("*");
   const { data: oddsData } = await supabase.from("match_odds").select("*");
+  const { data: matchData } = await supabase
+  .from("matches")
+  .select("*")
+  .neq("stage", "Grup")
+  .order("date_order", { ascending: true })
+  .order("time", { ascending: true });
   const { data: scoreData } = await supabase.from("match_scores").select("*");
 
   const { data: groupPredictionData } = await supabase
@@ -1820,6 +1826,20 @@ const { data: realGroupWinnerData } = await supabase
   setAllPredictions(predictionData || []);
   setUsers(userData || []);
   setDbOdds(oddsData || []);
+  const formattedMatches = (matchData || []).map((m) => ({
+  id: m.id,
+  home: m.home,
+  away: m.away,
+  group: m.group_name || "",
+  stage: m.stage,
+  matchday: m.matchday,
+  date: m.date,
+  dateOrder: m.date_order,
+  time: m.time,
+  isCustom: m.stage !== "Grup",
+}));
+
+setDbMatches(formattedMatches);
   setDbScores(scoreData || []);
   setGroupPredictions(groupPredictionData || []);
   setChampionPredictions(championPredictionData || []);
@@ -2279,7 +2299,10 @@ const getGroupPredictionClass = (groupName, teamName) => {
                     return (
 <td
   key={groupName}
-  className="p-4 text-center text-emerald-400 font-bold"
+  className={`p-4 text-center font-bold ${getGroupPredictionClass(
+    groupName,
+    team
+  )}`}
 >
   {team ? `${team} (${odd})` : "-"}
 </td>
