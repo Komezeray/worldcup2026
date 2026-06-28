@@ -1729,7 +1729,7 @@ setDbMatches(formattedMatches);
 
 function KatilimciTahminleri() {
   const [tab, setTab] = useState("matches");
-  const [stageFilter, setStageFilter] = useState("A");
+  const [stageFilter, setStageFilter] = useState("Son 32");
   const [matchdayFilter, setMatchdayFilter] = useState(1);
 
   const [allPredictions, setAllPredictions] = useState([]);
@@ -2091,29 +2091,29 @@ const getGroupPredictionClass = (groupName, teamName) => {
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-2">
-                {groupStageFilters.map((groupName) => (
-                  <button
-                    key={groupName}
-                    onClick={() => setStageFilter(groupName)}
-                    className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
-                      stageFilter === groupName ? activeClass : passiveClass
-                    }`}
-                  >
-                    Grup {groupName}
-                  </button>
-                ))}
+{knockoutFilters.map((stage) => (
+  <button
+    key={stage}
+    onClick={() => setStageFilter(stage)}
+    className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
+      stageFilter === stage ? activeClass : passiveClass
+    }`}
+  >
+    {stage}
+  </button>
+))}
 
-                {knockoutFilters.map((stage) => (
-                  <button
-                    key={stage}
-                    onClick={() => setStageFilter(stage)}
-                    className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
-                      stageFilter === stage ? activeClass : passiveClass
-                    }`}
-                  >
-                    {stage}
-                  </button>
-                ))}
+{groupStageFilters.map((groupName) => (
+  <button
+    key={groupName}
+    onClick={() => setStageFilter(groupName)}
+    className={`min-w-fit rounded-xl px-4 py-2 font-bold ${
+      stageFilter === groupName ? activeClass : passiveClass
+    }`}
+  >
+    Grup {groupName}
+  </button>
+))}
               </div>
             </div>
 
