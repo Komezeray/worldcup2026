@@ -608,6 +608,8 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
 
       // SANAL KULLANICI GRUP PUANLARI
 (realGroupWinners || []).forEach((realGroup) => {
+  total += 1;
+
   const groupTeams = (groupOdds || []).filter(
     (o) => String(o.group_name).trim() === String(realGroup.group_name).trim()
   );
@@ -623,9 +625,8 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
 
   if (!groupPick) return;
 
-  if (
-    String(groupPick.value).trim() === String(realGroup.winner).trim()
-  ) {
+  if (String(groupPick.value).trim() === String(realGroup.winner).trim()) {
+    correct += 1;
     groupPoints += Number(groupPick.odd || 0);
   }
 });
