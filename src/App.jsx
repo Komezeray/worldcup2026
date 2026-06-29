@@ -648,6 +648,141 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
         correctText: total === 0 ? "0/0" : `${correct}/${total}`,
       };
     };
+const getVirtualMode = (name) => {
+  if (name === "Banko") return "banko";
+  if (name === "Sürpriz") return "surpriz";
+  return null;
+};
+
+const getComparableMatchPick = (username, matchId) => {
+  const virtualMode = getVirtualMode(username);
+
+  const matchOdd = (odds || []).find(
+    (o) => Number(o.match_id) === Number(matchId)
+  );
+
+  if (virtualMode && matchOdd) {
+    const msPick = pickOdd(
+      [
+        { value: 1, odd: matchOdd.ms1 },
+        { value: 0, odd: matchOdd.ms0 },
+        { value: 2, odd: matchOdd.ms2 },
+      ],
+      virtualMode,
+      `${username}-MS-${matchId}`
+    );
+
+    const ouPick = pickOdd(
+      [
+        { value: "Alt", odd: matchOdd.under },
+        { value: "Üst", odd: matchOdd.over },
+      ],
+      virtualMode,
+      `${username}-OU-${matchId}`
+    );
+
+    return {
+      ms: msPick?.value,
+      ou: ouPick?.value,
+    };
+  }
+
+  return (cleanPredictions || []).find(
+    (p) =>
+      String(p.user_name).trim() === String(username).trim() &&
+      Number(p.match_id) === Number(matchId)
+  );
+};
+
+const getComparableGroupPick = (username, groupName) => {
+  const virtualMode = getVirtualMode(username);
+
+  if (virtualMode) {
+    const groupTeams = (groupOdds || []).filter(
+      (o) => String(o.group_name).trim() === String(groupName).trim()
+    );
+
+    const groupPick = pickOdd(
+      groupTeams.map((o) => ({
+        value: o.team_name,
+        odd: o.odd,
+      })),
+      virtualMode,
+      `${username}-GROUP-${groupName}`
+    );
+
+    return groupPick?.value || null;
+  }
+
+  const prediction = (groupPredictions || []).find(
+    (p) =>
+      String(p.user_name).trim() === String(username).trim() &&
+      String(p.group_name).trim() === String(groupName).trim()
+  );
+
+  return prediction?.team_name || null;
+};
+
+const getSimilarityText = (username, targetName) => {
+  let same = 0;
+  let total = 0;
+
+  (scores || []).forEach((score) => {
+    const matchId = Number(score.match_id);
+
+    const matchOdd = (odds || []).find(
+      (o) => Number(o.match_id) === matchId
+    );
+
+    if (!matchOdd) return;
+
+    const userPick = getComparableMatchPick(username, matchId);
+    const targetPick = getComparableMatchPick(targetName, matchId);
+
+    total += 2;
+
+    if (
+      userPick &&
+      targetPick &&
+      Number(userPick.ms) === Number(targetPick.ms)
+    ) {
+      same += 1;
+    }
+
+    if (
+      userPick &&
+      targetPick &&
+      String(userPick.ou || "").trim().toLowerCase() ===
+        String(targetPick.ou || "").trim().toLowerCase()
+    ) {
+      same += 1;
+    }
+  });
+
+  (realGroupWinners || []).forEach((realGroup) => {
+    total += 1;
+
+    const userGroupPick = getComparableGroupPick(
+      username,
+      realGroup.group_name
+    );
+
+    const targetGroupPick = getComparableGroupPick(
+      targetName,
+      realGroup.group_name
+    );
+
+    if (
+      userGroupPick &&
+      targetGroupPick &&
+      String(userGroupPick).trim() === String(targetGroupPick).trim()
+    ) {
+      same += 1;
+    }
+  });
+
+  return total === 0 ? "0/0" : `${same}/${total}`;
+};
 
     const standings = (users || []).map((user) => {
       let matchPoints = 0;
@@ -821,12 +956,17 @@ if (realTurkeyResult) {
     standings.push(calculateVirtualUser("Banko", "banko"));
     standings.push(calculateVirtualUser("Sürpriz", "surpriz"));
 
-    const sorted = standings
-      .sort((a, b) => b.totalPoints - a.totalPoints)
-      .map((user, index) => ({
-        rank: index + 1,
-        ...user,
-      }));
+const sorted = standings
+  .map((user) => ({
+    ...user,
+    bankoText: getSimilarityText(user.name, "Banko"),
+    surprizText: getSimilarityText(user.name, "Sürpriz"),
+  }))
+  .sort((a, b) => b.totalPoints - a.totalPoints)
+  .map((user, index) => ({
+    rank: index + 1,
+    ...user,
+  }));
 
     setTableUsers(sorted);
   };
@@ -850,6 +990,8 @@ if (realTurkeyResult) {
             <th className="text-left py-3">Grup</th>
             <th className="text-left py-3">Şampiyon</th>
             <th className="text-left py-3">Türkiye</th>
+            <th className="text-left py-3">Banko</th>
+            <th className="text-left py-3">Sürpriz</th>
           </tr>
         </thead>
 
@@ -893,6 +1035,14 @@ if (realTurkeyResult) {
               <td className="py-4 px-2 text-slate-300 font-bold">
                 {user.turkeyPoints}
               </td>
+
+              <td className="py-4 px-2 text-slate-300 font-bold">
+  {user.bankoText}
+</td>
+
+<td className="py-4 px-2 text-slate-300 font-bold">
+  {user.surprizText}
+</td>
             </tr>
           ))}
         </tbody>
