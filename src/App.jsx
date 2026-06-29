@@ -2051,11 +2051,16 @@ const getGroupPredictionClass = (groupName, teamName) => {
       return match.stage === stageFilter;
     })
     .filter(isMatchPredictionVisible)
-    .sort((a, b) => {
-      const da = `${a.dateOrder || a.date_order} ${a.time}`;
-      const db = `${b.dateOrder || b.date_order} ${b.time}`;
-      return da.localeCompare(db);
-    });
+.sort((a, b) => {
+  const da = `${a.dateOrder || a.date_order} ${a.time}`;
+  const db = `${b.dateOrder || b.date_order} ${b.time}`;
+
+  if (knockoutFilters.includes(stageFilter)) {
+    return db.localeCompare(da); // Son 32 ve sonrası: en güncel maç yukarı
+  }
+
+  return da.localeCompare(db); // Grup maçları eski düzen
+});
 
   const chunkSize = groupStageFilters.includes(stageFilter) ? 2 : 1;
   const matchChunks = [];
