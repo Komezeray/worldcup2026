@@ -504,6 +504,19 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
       const match = allMatches.find((m) => Number(m.id) === Number(matchId));
       if (!match) return;
 
+        // TEST
+  if (String(match.stage).trim() === "Son 32") {
+    console.log(
+      "SON32:",
+      match.home,
+      "-",
+      match.away,
+      "puan:",
+      point
+    );
+  }
+
+
       if (Number(match.matchday) === 1) totals.matchday1Points += point;
       if (Number(match.matchday) === 2) totals.matchday2Points += point;
       if (Number(match.matchday) === 3) totals.matchday3Points += point;
