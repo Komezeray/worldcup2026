@@ -1922,7 +1922,7 @@ setDbMatches(formattedMatches);
 
 function KatilimciTahminleri() {
   const [tab, setTab] = useState("matches");
-  const [stageFilter, setStageFilter] = useState("Son 32");
+  const [stageFilter, setStageFilter] = useState("Son 16");
   const [matchdayFilter, setMatchdayFilter] = useState(1);
 
   const [allPredictions, setAllPredictions] = useState([]);
@@ -2213,14 +2213,14 @@ const getGroupPredictionClass = (groupName, teamName) => {
     "L",
   ];
 
-  const knockoutFilters = [
-    "Son 32",
-    "Son 16",
-    "Çeyrek Final",
-    "Yarı Final",
-    "Üçüncülük",
-    "Final",
-  ];
+const knockoutFilters = [
+  "Son 16",
+  "Son 32",
+  "Çeyrek Final",
+  "Yarı Final",
+  "Üçüncülük",
+  "Final",
+];
 
   const matchdayFilters = [
     { label: "1. Maçlar", value: 1 },
