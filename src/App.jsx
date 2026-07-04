@@ -443,8 +443,23 @@ function Siralama() {
   };
 
   const calculateStandingsFromSupabase = async () => {
-    const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
-    const allMatches = [...matches, ...customMatches];
+const { data: matchData } = await supabase
+  .from("matches")
+  .select("*");
+
+const dbMatches = (matchData || []).map((m) => ({
+  id: m.id,
+  home: m.home,
+  away: m.away,
+  group: m.group_name || "",
+  stage: m.stage,
+  matchday: m.matchday,
+  date: m.date,
+  dateOrder: m.date_order,
+  time: m.time,
+}));
+
+const allMatches = [...matches, ...dbMatches];
 
     const { data: users } = await supabase.from("users").select("*");
     const predictions = await fetchAllRows("predictions");
@@ -655,6 +670,7 @@ const matchdayTotals = {
         matchday1Points: Number(matchdayTotals.matchday1Points.toFixed(2)),
         matchday2Points: Number(matchdayTotals.matchday2Points.toFixed(2)),
         matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
+        son32Points: Number((matchdayTotals.son32Points || 0).toFixed(2)),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
@@ -960,7 +976,7 @@ if (realTurkeyResult) {
         matchday1Points: Number(matchdayTotals.matchday1Points.toFixed(2)),
         matchday2Points: Number(matchdayTotals.matchday2Points.toFixed(2)),
         matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
-        son32Points: Number(matchdayTotals.son32Points.toFixed(2)),
+        son32Points: Number((matchdayTotals.son32Points || 0).toFixed(2)),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
