@@ -792,11 +792,12 @@ const getSimilarityText = (username, targetName) => {
       let championPoints = 0;
       let turkeyPoints = 0;
 
-      const matchdayTotals = {
-        matchday1Points: 0,
-        matchday2Points: 0,
-        matchday3Points: 0,
-      };
+const matchdayTotals = {
+  matchday1Points: 0,
+  matchday2Points: 0,
+  matchday3Points: 0,
+  son32Points: 0,
+};
 
       let correct = 0;
       let total = 0;
