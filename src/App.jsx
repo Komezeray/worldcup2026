@@ -507,6 +507,7 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
       if (Number(match.matchday) === 1) totals.matchday1Points += point;
       if (Number(match.matchday) === 2) totals.matchday2Points += point;
       if (Number(match.matchday) === 3) totals.matchday3Points += point;
+      if (String(match.stage).trim() === "Son 32") totals.son32Points += point;
     };
 
     const seededPick = (items, seedText) => {
@@ -542,11 +543,12 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
       let championPoints = 0;
       let turkeyPoints = 0;
 
-      const matchdayTotals = {
-        matchday1Points: 0,
-        matchday2Points: 0,
-        matchday3Points: 0,
-      };
+const matchdayTotals = {
+  matchday1Points: 0,
+  matchday2Points: 0,
+  matchday3Points: 0,
+  son32Points: 0,
+};
 
       let correct = 0;
       let total = 0;
@@ -944,6 +946,7 @@ if (realTurkeyResult) {
         matchday1Points: Number(matchdayTotals.matchday1Points.toFixed(2)),
         matchday2Points: Number(matchdayTotals.matchday2Points.toFixed(2)),
         matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
+        son32Points: Number(matchdayTotals.son32Points.toFixed(2)),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
@@ -986,6 +989,7 @@ const sorted = standings
             <th className="text-left py-3">1.Maçlar</th>
             <th className="text-left py-3">2.Maçlar</th>
             <th className="text-left py-3">3.Maçlar</th>
+            <th className="text-left py-3">Son 32</th>
             <th className="text-left py-3">Maç</th>
             <th className="text-left py-3">Grup</th>
             <th className="text-left py-3">Şampiyon</th>
@@ -1018,6 +1022,10 @@ const sorted = standings
 
               <td className="py-4 px-2 text-slate-300 font-bold">
                 {user.matchday3Points}
+              </td>
+
+              <td className="py-4 px-2 text-slate-300 font-bold">
+                {user.son32Points}
               </td>
 
               <td className="py-4 px-2 text-slate-300 font-bold">
