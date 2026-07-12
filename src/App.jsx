@@ -540,6 +540,10 @@ const cleanPredictions = Array.from(latestPredictionsMap.values());
       if (Number(match.matchday) === 2) totals.matchday2Points += point;
       if (Number(match.matchday) === 3) totals.matchday3Points += point;
       if (String(match.stage).trim() === "Son 32") totals.son32Points += point;
+      if (String(match.stage).trim() === "Çeyrek Final") {
+  totals.quarterFinalPoints =
+    (totals.quarterFinalPoints || 0) + point;
+}
     };
 
     const seededPick = (items, seedText) => {
@@ -581,6 +585,7 @@ const matchdayTotals = {
   matchday3Points: 0,
   son32Points: 0,
   son16Points: 0,
+  quarterFinalPoints: 0,
 };
 
       let correct = 0;
@@ -833,6 +838,7 @@ const matchdayTotals = {
   matchday3Points: 0,
   son32Points: 0,
   son16Points: 0,
+  quarterFinalPoints: 0,
 };
 
       let correct = 0;
@@ -985,6 +991,9 @@ if (realTurkeyResult) {
         matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
         son32Points: Number((matchdayTotals.son32Points || 0).toFixed(2)),
         son16Points: Number((matchdayTotals.son16Points || 0).toFixed(2)),
+        quarterFinalPoints: Number(
+  (matchdayTotals.quarterFinalPoints || 0).toFixed(2)
+),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
@@ -1029,6 +1038,7 @@ const sorted = standings
             <th className="text-left py-3">3.Maçlar</th>
             <th className="text-left py-3">Son 32</th>
             <th className="text-left py-3">Son 16</th>
+            <th className="text-left py-3">Ç.Final</th>
             <th className="text-left py-3">Maç</th>
             <th className="text-left py-3">Grup</th>
             <th className="text-left py-3">Şampiyon</th>
@@ -1070,6 +1080,10 @@ const sorted = standings
               <td className="py-4 px-2 text-slate-300 font-bold">
                 {user.son16Points || 0}
               </td>
+
+              <td className="py-4 px-2 text-slate-300 font-bold">
+  {user.quarterFinalPoints || 0}
+</td>
 
               <td className="py-4 px-2 text-slate-300 font-bold">
                 {user.matchPoints}
