@@ -682,6 +682,9 @@ const matchdayTotals = {
         matchday3Points: Number(matchdayTotals.matchday3Points.toFixed(2)),
         son32Points: Number((matchdayTotals.son32Points || 0).toFixed(2)),
         son16Points: Number((matchdayTotals.son16Points || 0).toFixed(2)),
+        quarterFinalPoints: Number(
+  (matchdayTotals.quarterFinalPoints || 0).toFixed(2)
+),
         groupPoints: Number(groupPoints.toFixed(2)),
         championPoints: Number(championPoints.toFixed(2)),
         turkeyPoints: Number(turkeyPoints.toFixed(2)),
