@@ -3281,12 +3281,47 @@ function Istatistik() {
     leastPointMatches: [],
   });
 
+  const [comparisonSource, setComparisonSource] = useState({
+    users: [],
+    cleanPredictions: [],
+    scores: [],
+    groupPredictions: [],
+    realGroupWinners: [],
+  });
+
+  const loggedInUser = localStorage.getItem("loggedInUser") || "";
+
+  const [selectedComparisonUser, setSelectedComparisonUser] =
+    useState(loggedInUser);
+
+  const [comparisonUsers, setComparisonUsers] = useState([]);
+
+  const [comparisonStats, setComparisonStats] = useState({
+    togetherCorrect: [],
+    togetherWrong: [],
+  });
+
   const [rankHistory, setRankHistory] = useState([]);
 
   useEffect(() => {
     fetchStats();
   }, []);
 
+  useEffect(() => {
+    if (!selectedComparisonUser) return;
+    if (!comparisonSource.users.length) return;
+
+    const result = calculateUserComparison({
+      selectedUsername: selectedComparisonUser,
+      users: comparisonSource.users,
+      cleanPredictions: comparisonSource.cleanPredictions,
+      scores: comparisonSource.scores,
+      groupPredictions: comparisonSource.groupPredictions,
+      realGroupWinners: comparisonSource.realGroupWinners,
+    });
+
+    setComparisonStats(result);
+  }, [selectedComparisonUser, comparisonSource]);
 
   const fetchAllRows = async (tableName) => {
     let allRows = [];
@@ -3307,6 +3342,7 @@ function Istatistik() {
       allRows = [...allRows, ...(data || [])];
 
       if (!data || data.length < size) break;
+
       from += size;
     }
 
@@ -3325,97 +3361,351 @@ function Istatistik() {
 
   const getMsOdd = (ms, odds) => {
     if (!odds) return 0;
+
     if (Number(ms) === 1) return Number(odds.ms1 || 0);
     if (Number(ms) === 0) return Number(odds.ms0 || 0);
     if (Number(ms) === 2) return Number(odds.ms2 || 0);
+
     return 0;
   };
 
   const getOuOdd = (ou, odds) => {
     if (!odds) return 0;
-    if (String(ou).toLowerCase() === "alt") return Number(odds.under || 0);
-    if (String(ou).toLowerCase() === "üst") return Number(odds.over || 0);
+
+    if (String(ou).toLowerCase() === "alt") {
+      return Number(odds.under || 0);
+    }
+
+    if (String(ou).toLowerCase() === "üst") {
+      return Number(odds.over || 0);
+    }
+
     return 0;
   };
 
-const buildRankHistory = ({
-  users,
-  matchesData,
-  predictions,
-  scores,
-  odds,
-  groupPredictions,
-  groupOdds,
-  realGroupWinners,
-}) => {
-  const stageNames = [
-    "1.Maçlar",
-    "2.Maçlar",
-    "3.Maçlar",
-    "Grup",
-    "Son 32",
-    "Son 16",
-    "Çeyrek Final",
-    "Yarı Final",
-    "Üçüncülük",
-    "Final",
-  ];
+  const calculateUserComparison = ({
+    selectedUsername,
+    users,
+    cleanPredictions,
+    scores,
+    groupPredictions,
+    realGroupWinners,
+  }) => {
+    if (!selectedUsername) {
+      return {
+        togetherCorrect: [],
+        togetherWrong: [],
+      };
+    }
 
-  const normalize = (value) =>
-    String(value ?? "")
-      .trim()
-      .toLocaleLowerCase("tr-TR");
+    const normalize = (value) =>
+      String(value ?? "")
+        .trim()
+        .toLocaleLowerCase("tr-TR");
 
-  const getStageIndex = (match) => {
-    if (Number(match.matchday) === 1) return 0;
-    if (Number(match.matchday) === 2) return 1;
-    if (Number(match.matchday) === 3) return 2;
+    const selectedName = String(selectedUsername).trim();
 
-    const stage = normalize(match.stage);
+    const otherUsers = (users || []).filter(
+      (user) => String(user.username).trim() !== selectedName
+    );
 
-    if (stage === normalize("Son 32")) return 4;
-    if (stage === normalize("Son 16")) return 5;
-    if (stage === normalize("Çeyrek Final")) return 6;
-    if (stage === normalize("Yarı Final")) return 7;
-    if (stage === normalize("Üçüncülük")) return 8;
-    if (stage === normalize("Final")) return 9;
+    const results = otherUsers.map((otherUser) => {
+      const otherName = String(otherUser.username).trim();
 
-    return -1;
+      let sharedCorrect = 0;
+      let sharedWrong = 0;
+      let sharedTotal = 0;
+
+      let sharedCorrectMs = 0;
+      let sharedCorrectOu = 0;
+      let sharedWrongMs = 0;
+      let sharedWrongOu = 0;
+      let sharedCorrectGroup = 0;
+      let sharedWrongGroup = 0;
+
+      // MAÇ TAHMİNLERİ
+      (scores || []).forEach((score) => {
+        const matchId = Number(score.match_id);
+        const homeScore = Number(score.home_score);
+        const awayScore = Number(score.away_score);
+
+        const realMS = getMSResult(homeScore, awayScore);
+        const realOU = getOUResult(homeScore, awayScore);
+
+        const selectedPrediction = (cleanPredictions || []).find(
+          (prediction) =>
+            String(prediction.user_name).trim() === selectedName &&
+            Number(prediction.match_id) === matchId
+        );
+
+        const otherPrediction = (cleanPredictions || []).find(
+          (prediction) =>
+            String(prediction.user_name).trim() === otherName &&
+            Number(prediction.match_id) === matchId
+        );
+
+        if (!selectedPrediction || !otherPrediction) return;
+
+        // Ortak MS tahmini
+        if (
+          Number(selectedPrediction.ms) ===
+          Number(otherPrediction.ms)
+        ) {
+          sharedTotal += 1;
+
+          if (Number(selectedPrediction.ms) === realMS) {
+            sharedCorrect += 1;
+            sharedCorrectMs += 1;
+          } else {
+            sharedWrong += 1;
+            sharedWrongMs += 1;
+          }
+        }
+
+                // Ortak Alt / Üst tahmini
+        if (
+          normalize(selectedPrediction.ou) ===
+          normalize(otherPrediction.ou)
+        ) {
+          sharedTotal += 1;
+
+          if (
+            normalize(selectedPrediction.ou) ===
+            normalize(realOU)
+          ) {
+            sharedCorrect += 1;
+            sharedCorrectOu += 1;
+          } else {
+            sharedWrong += 1;
+            sharedWrongOu += 1;
+          }
+        }
+      });
+
+      // GRUP LİDERİ TAHMİNLERİ
+      (realGroupWinners || []).forEach((realGroup) => {
+        const selectedGroupPrediction = (
+          groupPredictions || []
+        ).find(
+          (prediction) =>
+            String(prediction.user_name).trim() ===
+              selectedName &&
+            normalize(prediction.group_name) ===
+              normalize(realGroup.group_name)
+        );
+
+        const otherGroupPrediction = (
+          groupPredictions || []
+        ).find(
+          (prediction) =>
+            String(prediction.user_name).trim() ===
+              otherName &&
+            normalize(prediction.group_name) ===
+              normalize(realGroup.group_name)
+        );
+
+        if (
+          !selectedGroupPrediction ||
+          !otherGroupPrediction
+        ) {
+          return;
+        }
+
+        if (
+          normalize(selectedGroupPrediction.team_name) ===
+          normalize(otherGroupPrediction.team_name)
+        ) {
+          sharedTotal += 1;
+
+          if (
+            normalize(selectedGroupPrediction.team_name) ===
+            normalize(realGroup.winner)
+          ) {
+            sharedCorrect += 1;
+            sharedCorrectGroup += 1;
+          } else {
+            sharedWrong += 1;
+            sharedWrongGroup += 1;
+          }
+        }
+      });
+
+      const successRate =
+        sharedTotal === 0
+          ? 0
+          : Number(
+              (
+                (sharedCorrect / sharedTotal) *
+                100
+              ).toFixed(2)
+            );
+
+      return {
+        userName: otherName,
+
+        sharedCorrect,
+        sharedWrong,
+        sharedTotal,
+        successRate,
+
+        sharedCorrectMs,
+        sharedCorrectOu,
+        sharedCorrectGroup,
+
+        sharedWrongMs,
+        sharedWrongOu,
+        sharedWrongGroup,
+      };
+    });
+
+    return {
+      togetherCorrect: [...results]
+        .sort((a, b) => {
+          if (
+            b.sharedCorrect !== a.sharedCorrect
+          ) {
+            return (
+              b.sharedCorrect - a.sharedCorrect
+            );
+          }
+
+          return b.successRate - a.successRate;
+        })
+        .slice(0, 3),
+
+      togetherWrong: [...results]
+        .sort((a, b) => {
+          if (b.sharedWrong !== a.sharedWrong) {
+            return b.sharedWrong - a.sharedWrong;
+          }
+
+          return b.sharedTotal - a.sharedTotal;
+        })
+        .slice(0, 3),
+    };
   };
 
-  const userStagePoints = new Map();
+  const buildRankHistory = ({
+    users,
+    matchesData,
+    predictions,
+    scores,
+    odds,
+    groupPredictions,
+    groupOdds,
+    realGroupWinners,
+  }) => {
+    const stageNames = [
+      "1.Maçlar",
+      "2.Maçlar",
+      "3.Maçlar",
+      "Grup",
+      "Son 32",
+      "Son 16",
+      "Çeyrek Final",
+      "Yarı Final",
+      "Üçüncülük",
+      "Final",
+    ];
 
-  (users || []).forEach((user) => {
-    userStagePoints.set(
-      String(user.username).trim(),
-      Array(stageNames.length).fill(0)
-    );
-  });
+    const normalize = (value) =>
+      String(value ?? "")
+        .trim()
+        .toLocaleLowerCase("tr-TR");
 
-  // Maç puanları
-  (scores || []).forEach((score) => {
-    const matchId = Number(score.match_id);
+    const getStageIndex = (match) => {
+      if (Number(match.matchday) === 1) {
+        return 0;
+      }
 
-    const match = (matchesData || []).find(
-      (item) => Number(item.id) === matchId
-    );
+      if (Number(match.matchday) === 2) {
+        return 1;
+      }
 
-    const matchOdd = (odds || []).find(
-      (item) => Number(item.match_id) === matchId
-    );
+      if (Number(match.matchday) === 3) {
+        return 2;
+      }
 
-    if (!match || !matchOdd) return;
+      const stage = normalize(match.stage);
 
-    const stageIndex = getStageIndex(match);
-    if (stageIndex < 0) return;
+      if (stage === normalize("Son 32")) {
+        return 4;
+      }
 
-    const homeScore = Number(score.home_score);
-    const awayScore = Number(score.away_score);
+      if (stage === normalize("Son 16")) {
+        return 5;
+      }
 
-    const realMS = getMSResult(homeScore, awayScore);
-    const realOU = getOUResult(homeScore, awayScore);
+      if (
+        stage === normalize("Çeyrek Final")
+      ) {
+        return 6;
+      }
+
+      if (stage === normalize("Yarı Final")) {
+        return 7;
+      }
+
+      if (stage === normalize("Üçüncülük")) {
+        return 8;
+      }
+
+      if (stage === normalize("Final")) {
+        return 9;
+      }
+
+      return -1;
+    };
+
+    const userStagePoints = new Map();
 
     (users || []).forEach((user) => {
+      userStagePoints.set(
+        String(user.username).trim(),
+        Array(stageNames.length).fill(0)
+      );
+    });
+
+    // MAÇ PUANLARI
+    (scores || []).forEach((score) => {
+      const matchId = Number(score.match_id);
+
+      const match = (matchesData || []).find(
+        (item) =>
+          Number(item.id) === matchId
+      );
+
+      const matchOdd = (odds || []).find(
+        (item) =>
+          Number(item.match_id) === matchId
+      );
+
+      if (!match || !matchOdd) return;
+
+      const stageIndex =
+        getStageIndex(match);
+
+      if (stageIndex < 0) return;
+
+      const homeScore = Number(
+        score.home_score
+      );
+
+      const awayScore = Number(
+        score.away_score
+      );
+
+      const realMS = getMSResult(
+        homeScore,
+        awayScore
+      );
+
+      const realOU = getOUResult(
+        homeScore,
+        awayScore
+      );
+
+          (users || []).forEach((user) => {
       const username = String(user.username).trim();
 
       const prediction = (predictions || []).find(
@@ -3429,96 +3719,161 @@ const buildRankHistory = ({
       let earnedPoint = 0;
 
       if (Number(prediction.ms) === realMS) {
-        earnedPoint += getMsOdd(prediction.ms, matchOdd);
+        earnedPoint += getMsOdd(
+          prediction.ms,
+          matchOdd
+        );
       }
 
       if (
         normalize(prediction.ou) ===
         normalize(realOU)
       ) {
-        earnedPoint += getOuOdd(prediction.ou, matchOdd);
+        earnedPoint += getOuOdd(
+          prediction.ou,
+          matchOdd
+        );
       }
 
-      const userPoints = userStagePoints.get(username);
+      const userPoints =
+        userStagePoints.get(username);
+
+      if (!userPoints) return;
+
       userPoints[stageIndex] += earnedPoint;
     });
   });
 
-  // Grup liderliği puanları, grup aşamasının sonuna eklenir
-  (realGroupWinners || []).forEach((realGroup) => {
-    (users || []).forEach((user) => {
-      const username = String(user.username).trim();
+  // GRUP LİDERLİĞİ PUANLARI
+  (realGroupWinners || []).forEach(
+    (realGroup) => {
+      (users || []).forEach((user) => {
+        const username = String(
+          user.username
+        ).trim();
 
-      const prediction = (groupPredictions || []).find(
-        (item) =>
-          String(item.user_name).trim() === username &&
-          normalize(item.group_name) ===
-            normalize(realGroup.group_name)
-      );
+        const prediction = (
+          groupPredictions || []
+        ).find(
+          (item) =>
+            String(item.user_name).trim() ===
+              username &&
+            normalize(item.group_name) ===
+              normalize(
+                realGroup.group_name
+              )
+        );
 
-      if (!prediction) return;
+        if (!prediction) return;
 
-      if (
-        normalize(prediction.team_name) !==
-        normalize(realGroup.winner)
-      ) {
-        return;
-      }
+        if (
+          normalize(prediction.team_name) !==
+          normalize(realGroup.winner)
+        ) {
+          return;
+        }
 
-      const oddRow = (groupOdds || []).find(
-        (item) =>
-          normalize(item.group_name) ===
-            normalize(realGroup.group_name) &&
-          normalize(item.team_name) ===
-            normalize(prediction.team_name)
-      );
+        const oddRow = (
+          groupOdds || []
+        ).find(
+          (item) =>
+            normalize(item.group_name) ===
+              normalize(
+                realGroup.group_name
+              ) &&
+            normalize(item.team_name) ===
+              normalize(
+                prediction.team_name
+              )
+        );
 
-      const userPoints = userStagePoints.get(username);
-      userPoints[3] += Number(oddRow?.odd || 0);
-    });
-  });
+        const userPoints =
+          userStagePoints.get(username);
 
-  // Her aşamada bir önceki puanları da üzerine ekle
-  const cumulativeUsers = (users || []).map((user) => {
-    const username = String(user.username).trim();
-    const stagePoints = userStagePoints.get(username) || [];
+        if (!userPoints) return;
+
+        userPoints[3] += Number(
+          oddRow?.odd || 0
+        );
+      });
+    }
+  );
+
+  // KÜMÜLATİF PUANLAR
+  const cumulativeUsers = (
+    users || []
+  ).map((user) => {
+    const username = String(
+      user.username
+    ).trim();
+
+    const stagePoints =
+      userStagePoints.get(username) ||
+      Array(stageNames.length).fill(0);
 
     let runningTotal = 0;
 
-    const cumulativePoints = stagePoints.map((point) => {
-      runningTotal += Number(point || 0);
-      return Number(runningTotal.toFixed(2));
-    });
+    const cumulativePoints =
+      stagePoints.map((point) => {
+        runningTotal += Number(
+          point || 0
+        );
+
+        return Number(
+          runningTotal.toFixed(2)
+        );
+      });
 
     return {
       name: username,
       points: cumulativePoints,
-      ranks: Array(stageNames.length).fill(0),
+      ranks: Array(
+        stageNames.length
+      ).fill(0),
     };
   });
 
-  // Her aşama için kullanıcıların sırasını hesapla
-  stageNames.forEach((_, stageIndex) => {
-    const sortedAtStage = [...cumulativeUsers].sort((a, b) => {
-      const difference =
-        Number(b.points[stageIndex] || 0) -
-        Number(a.points[stageIndex] || 0);
+  // HER AŞAMADAKİ SIRALAMA
+  stageNames.forEach(
+    (_, stageIndex) => {
+      const sortedAtStage = [
+        ...cumulativeUsers,
+      ].sort((a, b) => {
+        const difference =
+          Number(
+            b.points[stageIndex] || 0
+          ) -
+          Number(
+            a.points[stageIndex] || 0
+          );
 
-      if (difference !== 0) return difference;
+        if (difference !== 0) {
+          return difference;
+        }
 
-      return a.name.localeCompare(b.name, "tr");
-    });
+        return a.name.localeCompare(
+          b.name,
+          "tr"
+        );
+      });
 
-    sortedAtStage.forEach((user, index) => {
-      const originalUser = cumulativeUsers.find(
-        (item) => item.name === user.name
+      sortedAtStage.forEach(
+        (user, index) => {
+          const originalUser =
+            cumulativeUsers.find(
+              (item) =>
+                item.name === user.name
+            );
+
+          if (originalUser) {
+            originalUser.ranks[
+              stageIndex
+            ] = index + 1;
+          }
+        }
       );
-
-      if (originalUser) {
-        originalUser.ranks[stageIndex] = index + 1;
-      }
-    });
-  });
+    }
+  );
 
   return {
     stageNames,
@@ -3526,288 +3881,940 @@ const buildRankHistory = ({
   };
 };
 
+const fetchStats = async () => {
+  const predictions =
+    await fetchAllRows("predictions");
 
-  const fetchStats = async () => {
-    const predictions = await fetchAllRows("predictions");
+  const latestPredictionsMap =
+    new Map();
 
-    const latestPredictionsMap = new Map();
+  (predictions || []).forEach(
+    (prediction) => {
+      const key = `${String(
+        prediction.user_name
+      ).trim()}-${Number(
+        prediction.match_id
+      )}`;
 
-    (predictions || []).forEach((p) => {
-      const key = `${String(p.user_name).trim()}-${Number(p.match_id)}`;
-      const existing = latestPredictionsMap.get(key);
+      const existing =
+        latestPredictionsMap.get(key);
 
-      if (!existing || Number(p.id) > Number(existing.id)) {
-        latestPredictionsMap.set(key, p);
+      if (
+        !existing ||
+        Number(prediction.id) >
+          Number(existing.id)
+      ) {
+        latestPredictionsMap.set(
+          key,
+          prediction
+        );
       }
-    });
+    }
+  );
 
-    const cleanPredictions = Array.from(latestPredictionsMap.values());
+  const cleanPredictions =
+    Array.from(
+      latestPredictionsMap.values()
+    );
 
-const { data: users } = await supabase
-  .from("users")
-  .select("*");
+  const { data: users } =
+    await supabase
+      .from("users")
+      .select("*");
 
-const { data: matchesData } = await supabase
-  .from("matches")
-  .select("*");
+  const { data: matchesData } =
+    await supabase
+      .from("matches")
+      .select("*");
 
-const { data: scores } = await supabase
-  .from("match_scores")
-  .select("*");
+  const { data: scores } =
+    await supabase
+      .from("match_scores")
+      .select("*");
 
-const { data: odds } = await supabase
-  .from("match_odds")
-  .select("*");
+  const { data: odds } =
+    await supabase
+      .from("match_odds")
+      .select("*");
 
-const { data: groupPredictions } = await supabase
-  .from("group_predictions")
-  .select("*");
+  const {
+    data: groupPredictions,
+  } = await supabase
+    .from("group_predictions")
+    .select("*");
 
-const { data: groupOdds } = await supabase
-  .from("group_odds")
-  .select("*");
+  const { data: groupOdds } =
+    await supabase
+      .from("group_odds")
+      .select("*");
 
-const { data: realGroupWinners } = await supabase
-  .from("real_group_winners")
-  .select("*");
+  const {
+    data: realGroupWinners,
+  } = await supabase
+    .from("real_group_winners")
+    .select("*");
 
-const allMatches = matchesData || [];
+  const allMatches =
+    matchesData || [];
 
-    const zeroMatches = [];
-    const noMsMatches = [];
-    const highestCorrectOdds = [];
-    const mostPointMatches = [];
-    const leastPointMatches = [];
+  const zeroMatches = [];
+  const noMsMatches = [];
+  const highestCorrectOdds = [];
+  const mostPointMatches = [];
+  const leastPointMatches = [];
 
-    let ustCount = 0;
-    let altCount = 0;
+  let ustCount = 0;
+  let altCount = 0;
 
-    (scores || []).forEach((score) => {
-      const matchId = Number(score.match_id);
-      const match = allMatches.find((m) => Number(m.id) === matchId);
-      const matchOdds = (odds || []).find(
-        (o) => Number(o.match_id) === matchId
+  (scores || []).forEach(
+    (score) => {
+      const matchId = Number(
+        score.match_id
       );
 
-      if (!match || !matchOdds) return;
+      const match =
+        allMatches.find(
+          (item) =>
+            Number(item.id) ===
+            matchId
+        );
 
-      const homeScore = Number(score.home_score);
-      const awayScore = Number(score.away_score);
-
-      const realMS = getMSResult(homeScore, awayScore);
-      const realOU = getOUResult(homeScore, awayScore);
-
-      if (realOU === "Üst") ustCount += 1;
-      if (realOU === "Alt") altCount += 1;
-
-      const matchPredictions = cleanPredictions.filter(
-        (p) => Number(p.match_id) === matchId
+      const matchOdds = (
+        odds || []
+      ).find(
+        (item) =>
+          Number(item.match_id) ===
+          matchId
       );
 
-      if (matchPredictions.length === 0) return;
+      if (!match || !matchOdds) {
+        return;
+      }
+
+      const homeScore = Number(
+        score.home_score
+      );
+
+      const awayScore = Number(
+        score.away_score
+      );
+
+      const realMS =
+        getMSResult(
+          homeScore,
+          awayScore
+        );
+
+      const realOU =
+        getOUResult(
+          homeScore,
+          awayScore
+        );
+
+      if (realOU === "Üst") {
+        ustCount += 1;
+      }
+
+      if (realOU === "Alt") {
+        altCount += 1;
+      }
+
+            const matchPredictions = (
+        cleanPredictions || []
+      ).filter(
+        (prediction) =>
+          Number(prediction.match_id) ===
+          matchId
+      );
+
+      if (
+        matchPredictions.length === 0
+      ) {
+        return;
+      }
 
       let anyPoint = false;
       let anyMsCorrect = false;
       let matchTotalPoint = 0;
 
-      matchPredictions.forEach((p) => {
-        const msCorrect = Number(p.ms) === realMS;
-        const ouCorrect =
-          String(p.ou).toLowerCase() === String(realOU).toLowerCase();
+      matchPredictions.forEach(
+        (prediction) => {
+          const msCorrect =
+            Number(prediction.ms) ===
+            realMS;
 
-        if (msCorrect) {
-          anyPoint = true;
-          anyMsCorrect = true;
+          const ouCorrect =
+            String(
+              prediction.ou
+            ).toLowerCase() ===
+            String(
+              realOU
+            ).toLowerCase();
 
-          const point = getMsOdd(p.ms, matchOdds);
-          matchTotalPoint += point;
+          if (msCorrect) {
+            anyPoint = true;
+            anyMsCorrect = true;
 
-          highestCorrectOdds.push({
-            userName: p.user_name,
-            matchName: `${match.home} - ${match.away}`,
-            prediction: Number(p.ms) === 0 ? "MS X" : `MS ${p.ms}`,
-            odd: point,
-          });
+            const point =
+              getMsOdd(
+                prediction.ms,
+                matchOdds
+              );
+
+            matchTotalPoint += point;
+
+            highestCorrectOdds.push({
+              userName:
+                prediction.user_name,
+
+              matchName: `${match.home} - ${match.away}`,
+
+              prediction:
+                Number(
+                  prediction.ms
+                ) === 0
+                  ? "MS X"
+                  : `MS ${prediction.ms}`,
+
+              odd: point,
+            });
+          }
+
+          if (ouCorrect) {
+            anyPoint = true;
+
+            const point =
+              getOuOdd(
+                prediction.ou,
+                matchOdds
+              );
+
+            matchTotalPoint += point;
+
+            highestCorrectOdds.push({
+              userName:
+                prediction.user_name,
+
+              matchName: `${match.home} - ${match.away}`,
+
+              prediction:
+                prediction.ou,
+
+              odd: point,
+            });
+          }
         }
-
-        if (ouCorrect) {
-          anyPoint = true;
-
-          const point = getOuOdd(p.ou, matchOdds);
-          matchTotalPoint += point;
-
-          highestCorrectOdds.push({
-            userName: p.user_name,
-            matchName: `${match.home} - ${match.away}`,
-            prediction: p.ou,
-            odd: point,
-          });
-        }
-      });
+      );
 
       const matchInfo = {
         id: matchId,
-        name: `${match.home} - ${match.away}`,
-        score: `${homeScore}-${awayScore}`,
-        group: match.group || match.group_name,
-        matchday: match.matchday,
-        predictionCount: matchPredictions.length,
-        totalPoint: Number(matchTotalPoint.toFixed(2)),
+
+        name:
+          `${match.home} - ${match.away}`,
+
+        score:
+          `${homeScore}-${awayScore}`,
+
+        group:
+          match.group ||
+          match.group_name,
+
+        matchday:
+          match.matchday,
+
+        predictionCount:
+          matchPredictions.length,
+
+        totalPoint:
+          Number(
+            matchTotalPoint.toFixed(2)
+          ),
       };
 
-      if (!anyPoint) zeroMatches.push(matchInfo);
-      if (!anyMsCorrect) noMsMatches.push(matchInfo);
+      if (!anyPoint) {
+        zeroMatches.push(matchInfo);
+      }
 
-      mostPointMatches.push(matchInfo);
-      leastPointMatches.push(matchInfo);
+      if (!anyMsCorrect) {
+        noMsMatches.push(matchInfo);
+      }
+
+      mostPointMatches.push(
+        matchInfo
+      );
+
+      leastPointMatches.push(
+        matchInfo
+      );
+    }
+  );
+
+  const historyData =
+    buildRankHistory({
+      users: users || [],
+      matchesData:
+        allMatches,
+
+      predictions:
+        cleanPredictions,
+
+      scores:
+        scores || [],
+
+      odds:
+        odds || [],
+
+      groupPredictions:
+        groupPredictions || [],
+
+      groupOdds:
+        groupOdds || [],
+
+      realGroupWinners:
+        realGroupWinners || [],
     });
 
-    const historyData = buildRankHistory({
-  users: users || [],
-  matchesData: allMatches,
-  predictions: cleanPredictions,
-  scores: scores || [],
-  odds: odds || [],
-  groupPredictions: groupPredictions || [],
-  groupOdds: groupOdds || [],
-  realGroupWinners: realGroupWinners || [],
-});
+  setRankHistory(
+    historyData
+  );
 
-setRankHistory(historyData);
+  setComparisonUsers(
+    users || []
+  );
 
-    setStats({
-      zeroMatches,
-      noMsMatches,
-      overUnderSummary: { ust: ustCount, alt: altCount },
-      highestCorrectOdds: highestCorrectOdds
-        .sort((a, b) => b.odd - a.odd)
+  setComparisonSource({
+    users:
+      users || [],
+
+    cleanPredictions,
+
+    scores:
+      scores || [],
+
+    groupPredictions:
+      groupPredictions || [],
+
+    realGroupWinners:
+      realGroupWinners || [],
+  });
+
+  const initialSelectedUser =
+    selectedComparisonUser ||
+    loggedInUser ||
+    users?.[0]?.username ||
+    "";
+
+  if (
+    !selectedComparisonUser &&
+    initialSelectedUser
+  ) {
+    setSelectedComparisonUser(
+      initialSelectedUser
+    );
+  }
+
+  const initialComparison =
+    calculateUserComparison({
+      selectedUsername:
+        initialSelectedUser,
+
+      users:
+        users || [],
+
+      cleanPredictions,
+
+      scores:
+        scores || [],
+
+      groupPredictions:
+        groupPredictions || [],
+
+      realGroupWinners:
+        realGroupWinners || [],
+    });
+
+  setComparisonStats(
+    initialComparison
+  );
+
+  setStats({
+    zeroMatches,
+
+    noMsMatches,
+
+    overUnderSummary: {
+      ust: ustCount,
+      alt: altCount,
+    },
+
+    highestCorrectOdds:
+      highestCorrectOdds
+        .sort(
+          (a, b) =>
+            b.odd - a.odd
+        )
         .slice(0, 15),
-      mostPointMatches: mostPointMatches
-        .sort((a, b) => b.totalPoint - a.totalPoint)
-        .slice(0, 10),
-      leastPointMatches: leastPointMatches
-        .sort((a, b) => a.totalPoint - b.totalPoint)
-        .slice(0, 10),
-    });
-  };
 
-  const StatCard = ({ title, children }) => (
-    <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5">
-      <h3 className="text-xl font-bold mb-4 text-emerald-400">{title}</h3>
-      {children}
+    mostPointMatches:
+      mostPointMatches
+        .sort(
+          (a, b) =>
+            b.totalPoint -
+            a.totalPoint
+        )
+        .slice(0, 10),
+
+    leastPointMatches:
+      leastPointMatches
+        .sort(
+          (a, b) =>
+            a.totalPoint -
+            b.totalPoint
+        )
+        .slice(0, 10),
+  });
+};
+
+const StatCard = ({
+  title,
+  children,
+}) => (
+  <div
+    className="
+      rounded-2xl
+      bg-[#0f172a]
+      border
+      border-slate-700
+      p-5
+    "
+  >
+    <h3
+      className="
+        text-xl
+        font-bold
+        mb-4
+        text-emerald-400
+      "
+    >
+      {title}
+    </h3>
+
+    {children}
+  </div>
+);
+
+const MatchList = ({
+  items,
+  emptyText,
+}) =>
+  items.length === 0 ? (
+    <div
+      className="
+        text-slate-400
+      "
+    >
+      {emptyText}
+    </div>
+  ) : (
+    <div
+      className="
+        space-y-3
+      "
+    >
+      {items.map(
+        (item) => (
+          <div
+            key={item.id}
+            className="
+              rounded-xl
+              bg-slate-800
+              p-4
+            "
+          >
+            <div
+              className="
+                font-bold
+              "
+            >
+              {item.name}{" "}
+
+              <span
+                className="
+                  text-emerald-400
+                "
+              >
+                ({item.score})
+              </span>
+            </div>
+
+            <div
+              className="
+                text-sm
+                text-slate-400
+                mt-1
+              "
+            >
+              Grup {item.group}
+              {" • "}
+              {item.matchday}. Maç
+              {" • "}
+              Tahmin yapan:{" "}
+              {item.predictionCount}
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 
-  const MatchList = ({ items, emptyText }) =>
-    items.length === 0 ? (
-      <div className="text-slate-400">{emptyText}</div>
-    ) : (
-      <div className="space-y-3">
-        {items.map((item) => (
-          <div key={item.id} className="rounded-xl bg-slate-800 p-4">
-            <div className="font-bold">
-              {item.name}{" "}
-              <span className="text-emerald-400">({item.score})</span>
+  const ComparisonList = ({
+  items,
+  type,
+  emptyText,
+}) => {
+  if (
+    !items ||
+    items.length === 0
+  ) {
+    return (
+      <div
+        className="
+          text-slate-400
+        "
+      >
+        {emptyText}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="
+        space-y-3
+      "
+    >
+      {items.map(
+        (item, index) => {
+          const isCorrect =
+            type === "correct";
+
+          const mainValue =
+            isCorrect
+              ? item.sharedCorrect
+              : item.sharedWrong;
+
+          const msValue =
+            isCorrect
+              ? item.sharedCorrectMs
+              : item.sharedWrongMs;
+
+          const ouValue =
+            isCorrect
+              ? item.sharedCorrectOu
+              : item.sharedWrongOu;
+
+          const groupValue =
+            isCorrect
+              ? item.sharedCorrectGroup
+              : item.sharedWrongGroup;
+
+          return (
+            <div
+              key={item.userName}
+              className="
+                rounded-xl
+                bg-slate-800
+                p-4
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                "
+              >
+                <div
+                  className="
+                    font-bold
+                  "
+                >
+                  {index + 1}.{" "}
+                  {item.userName}
+                </div>
+
+                <div
+                  className={`
+                    text-lg
+                    font-extrabold
+                    ${
+                      isCorrect
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }
+                  `}
+                >
+                  {mainValue}
+                </div>
+              </div>
+
+              <div
+                className="
+                  mt-2
+                  text-sm
+                  text-slate-400
+                "
+              >
+                MS: {msValue}
+                {" • "}
+                A/Ü: {ouValue}
+                {" • "}
+                Grup: {groupValue}
+              </div>
+
+              <div
+                className="
+                  mt-1
+                  text-xs
+                  text-slate-500
+                "
+              >
+                Toplam aynı tahmin:{" "}
+                {item.sharedTotal}
+                {" • "}
+                Ortak başarı: %
+                {item.successRate}
+              </div>
             </div>
-            <div className="text-sm text-slate-400 mt-1">
-              Grup {item.group} • {item.matchday}. Maç • Tahmin yapan:{" "}
-              {item.predictionCount}
+          );
+        }
+      )}
+    </div>
+  );
+};
+
+return (
+  <div
+    className="
+      space-y-5
+    "
+  >
+    <h2
+      className="
+        text-2xl
+        font-bold
+      "
+    >
+      İstatistik
+    </h2>
+
+    <SiraDegisimGrafigi
+      history={rankHistory}
+    />
+
+    <StatCard
+      title="Tahmin Ortaklığı 🤝"
+    >
+      <div
+        className="
+          mb-5
+        "
+      >
+        <label
+          className="
+            mb-2
+            block
+            text-sm
+            font-bold
+            text-slate-300
+          "
+        >
+          Kullanıcı seç
+        </label>
+
+        <select
+          value={
+            selectedComparisonUser
+          }
+          onChange={(event) =>
+            setSelectedComparisonUser(
+              event.target.value
+            )
+          }
+          className="
+            w-full
+            rounded-xl
+            border
+            border-slate-700
+            bg-slate-800
+            px-4
+            py-3
+            font-bold
+            text-white
+            outline-none
+          "
+        >
+          {(
+            comparisonUsers || []
+          ).map((user) => (
+            <option
+              key={user.username}
+              value={user.username}
+            >
+              {user.username}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div
+        className="
+          grid
+          grid-cols-1
+          gap-5
+          xl:grid-cols-2
+        "
+      >
+        <div
+          className="
+            rounded-2xl
+            border
+            border-emerald-500/30
+            bg-emerald-500/5
+            p-4
+          "
+        >
+          <h4
+            className="
+              mb-4
+              text-lg
+              font-bold
+              text-emerald-400
+            "
+          >
+            ✅ En Çok Birlikte
+            Doğru Bildikleri
+          </h4>
+
+          <ComparisonList
+            items={
+              comparisonStats
+                .togetherCorrect
+            }
+            type="correct"
+            emptyText="
+              Ortak doğru tahmin
+              bulunamadı.
+            "
+          />
+        </div>
+
+        <div
+          className="
+            rounded-2xl
+            border
+            border-red-500/30
+            bg-red-500/5
+            p-4
+          "
+        >
+          <h4
+            className="
+              mb-4
+              text-lg
+              font-bold
+              text-red-400
+            "
+          >
+            ❌ En Çok Birlikte
+            Yanıldıkları
+          </h4>
+
+          <ComparisonList
+            items={
+              comparisonStats
+                .togetherWrong
+            }
+            type="wrong"
+            emptyText="
+              Ortak yanlış tahmin
+              bulunamadı.
+            "
+          />
+        </div>
+      </div>
+    </StatCard>
+
+    <StatCard
+      title="
+        Herkesin 0 Aldığı
+        Maçlar 😄
+      "
+    >
+      <MatchList
+        items={
+          stats.zeroMatches
+        }
+        emptyText="
+          Şimdilik herkesin
+          0 aldığı maç yok.
+        "
+      />
+    </StatCard>
+
+    <StatCard
+      title="
+        Kimsenin MS
+        Tutturamadığı Maçlar
+      "
+    >
+      <MatchList
+        items={
+          stats.noMsMatches
+        }
+        emptyText="
+          Şimdilik herkes
+          en az bir maç sonucu
+          tutturmuş.
+        "
+      />
+    </StatCard>
+
+    <StatCard
+      title="
+        En Az Puan Toplanan
+        Maçlar 🥶
+      "
+    >
+      <div
+        className="
+          space-y-3
+        "
+      >
+        {stats.leastPointMatches.map(
+          (item) => (
+            <div
+              key={item.id}
+              className="
+                rounded-xl
+                bg-slate-800
+                p-4
+              "
+            >
+              <div
+                className="
+                  font-bold
+                "
+              >
+                {item.name}{" "}
+
+                <span
+                  className="
+                    text-emerald-400
+                  "
+                >
+                  ({item.score})
+                </span>
+              </div>
+
+              <div
+                className="
+                  text-sm
+                  text-slate-400
+                  mt-1
+                "
+              >
+                Toplam dağıtılan
+                puan:{" "}
+                {item.totalPoint}
+                {" • "}
+                Tahmin yapan:{" "}
+                {
+                  item.predictionCount
+                }
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </StatCard>
+
+        <StatCard title="Alt / Üst Dağılımı">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-xl bg-slate-800 p-4 text-center">
+          <div className="text-lg font-bold text-yellow-400">
+            Üst
+          </div>
+
+          <div className="text-2xl font-extrabold">
+            {stats.overUnderSummary.ust}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-slate-800 p-4 text-center">
+          <div className="text-lg font-bold text-yellow-400">
+            Alt
+          </div>
+
+          <div className="text-2xl font-extrabold">
+            {stats.overUnderSummary.alt}
+          </div>
+        </div>
+      </div>
+    </StatCard>
+
+    <StatCard title="En Yüksek Oranlı Doğru Tahminler 🔥">
+      <div className="space-y-3">
+        {stats.highestCorrectOdds.map((item, index) => (
+          <div
+            key={`${item.userName}-${item.matchName}-${index}`}
+            className="rounded-xl bg-slate-800 p-4"
+          >
+            <div className="font-bold">
+              {item.userName} -{" "}
+              <span className="text-emerald-400">
+                {item.odd}
+              </span>
+            </div>
+
+            <div className="mt-1 text-sm text-slate-400">
+              {item.matchName} • {item.prediction}
             </div>
           </div>
         ))}
       </div>
-    );
+    </StatCard>
 
-return (
-  <div className="space-y-5">
-    <h2 className="text-2xl font-bold">İstatistik</h2>
+    <StatCard title="En Fazla Puan Dağıtan Maçlar 💰">
+      <div className="space-y-3">
+        {stats.mostPointMatches.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-xl bg-slate-800 p-4"
+          >
+            <div className="font-bold">
+              {item.name}{" "}
 
-    <SiraDegisimGrafigi history={rankHistory} />
-
-    <StatCard title="Herkesin 0 Aldığı Maçlar 😄">
-        <MatchList
-          items={stats.zeroMatches}
-          emptyText="Şimdilik herkesin 0 aldığı maç yok."
-        />
-      </StatCard>
-
-      <StatCard title="Kimsenin MS Tutturamadığı Maçlar">
-        <MatchList
-          items={stats.noMsMatches}
-          emptyText="Şimdilik herkes en az bir maç sonucu tutturmuş."
-        />
-      </StatCard>
-
-      <StatCard title="En Az Puan Toplanan Maçlar 🥶">
-        <div className="space-y-3">
-          {stats.leastPointMatches.map((item) => (
-            <div key={item.id} className="rounded-xl bg-slate-800 p-4">
-              <div className="font-bold">
-                {item.name}{" "}
-                <span className="text-emerald-400">({item.score})</span>
-              </div>
-              <div className="text-sm text-slate-400 mt-1">
-                Toplam dağıtılan puan: {item.totalPoint} • Tahmin yapan:{" "}
-                {item.predictionCount}
-              </div>
+              <span className="text-emerald-400">
+                ({item.score})
+              </span>
             </div>
-          ))}
-        </div>
-      </StatCard>
 
-      <StatCard title="Alt / Üst Dağılımı">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl bg-slate-800 p-4 text-center">
-            <div className="text-yellow-400 font-bold text-lg">Üst</div>
-            <div className="text-2xl font-extrabold">
-              {stats.overUnderSummary.ust}
+            <div className="mt-1 text-sm text-slate-400">
+              Toplam dağıtılan puan: {item.totalPoint}
+              {" • "}
+              Tahmin yapan: {item.predictionCount}
             </div>
           </div>
-
-          <div className="rounded-xl bg-slate-800 p-4 text-center">
-            <div className="text-yellow-400 font-bold text-lg">Alt</div>
-            <div className="text-2xl font-extrabold">
-              {stats.overUnderSummary.alt}
-            </div>
-          </div>
-        </div>
-      </StatCard>
-
-      <StatCard title="En Yüksek Oranlı Doğru Tahminler 🔥">
-        <div className="space-y-3">
-          {stats.highestCorrectOdds.map((item, index) => (
-            <div key={index} className="rounded-xl bg-slate-800 p-4">
-              <div className="font-bold">
-                {item.userName} -{" "}
-                <span className="text-emerald-400">{item.odd}</span>
-              </div>
-              <div className="text-sm text-slate-400 mt-1">
-                {item.matchName} • {item.prediction}
-              </div>
-            </div>
-          ))}
-        </div>
-      </StatCard>
-
-      <StatCard title="En Fazla Puan Dağıtan Maçlar 💰">
-        <div className="space-y-3">
-          {stats.mostPointMatches.map((item) => (
-            <div key={item.id} className="rounded-xl bg-slate-800 p-4">
-              <div className="font-bold">
-                {item.name}{" "}
-                <span className="text-emerald-400">({item.score})</span>
-              </div>
-              <div className="text-sm text-slate-400 mt-1">
-                Toplam dağıtılan puan: {item.totalPoint} • Tahmin yapan:{" "}
-                {item.predictionCount}
-              </div>
-            </div>
-          ))}
-        </div>
-      </StatCard>
-    </div>
-  );
+        ))}
+      </div>
+    </StatCard>
+  </div>
+);
 }
+
+  
 
 function AdminPanel() {
 const [customMatches, setCustomMatches] = useState([]);
