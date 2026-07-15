@@ -3056,6 +3056,221 @@ function Turkiye() {
   );
 }
 
+function SiraDegisimGrafigi({ history }) {
+  const stageNames = history?.stageNames || [];
+  const users = history?.users || [];
+
+  if (stageNames.length === 0 || users.length === 0) {
+    return (
+      <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5">
+        <h3 className="text-xl font-bold text-emerald-400">
+          Sıralama Değişimi
+        </h3>
+
+        <div className="mt-4 text-slate-400">
+          Grafik verileri hazırlanıyor.
+        </div>
+      </div>
+    );
+  }
+
+  const width = 1550;
+  const height = Math.max(760, users.length * 38 + 150);
+
+  const leftMargin = 170;
+  const rightMargin = 220;
+  const topMargin = 95;
+  const bottomMargin = 55;
+
+  const chartWidth =
+    width - leftMargin - rightMargin;
+
+  const chartHeight =
+    height - topMargin - bottomMargin;
+
+  const maxRank = users.length;
+
+  const colors = [
+    "#22d3ee",
+    "#f43f5e",
+    "#facc15",
+    "#a78bfa",
+    "#34d399",
+    "#fb923c",
+    "#60a5fa",
+    "#f472b6",
+    "#2dd4bf",
+    "#c084fc",
+    "#f87171",
+    "#84cc16",
+    "#e879f9",
+    "#38bdf8",
+    "#fbbf24",
+    "#4ade80",
+    "#fb7185",
+    "#818cf8",
+    "#14b8a6",
+    "#f97316",
+    "#a3e635",
+    "#d946ef",
+  ];
+
+  const getX = (index) =>
+    leftMargin +
+    (index * chartWidth) /
+      Math.max(stageNames.length - 1, 1);
+
+  const getY = (rank) =>
+    topMargin +
+    ((Math.max(rank, 1) - 1) * chartHeight) /
+      Math.max(maxRank - 1, 1);
+
+  return (
+    <div className="rounded-2xl bg-[#0f172a] border border-slate-700 p-5">
+      <h3 className="text-xl font-bold text-emerald-400">
+        Sıralama Değişimi 🏁
+      </h3>
+
+      <p className="mt-1 mb-5 text-sm text-slate-400">
+        Katılımcıların turnuva boyunca sıralamadaki hareketleri
+      </p>
+
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full min-w-[1350px]"
+        >
+          {stageNames.map((stage, index) => (
+            <g key={stage}>
+              <line
+                x1={getX(index)}
+                x2={getX(index)}
+                y1={topMargin - 25}
+                y2={height - bottomMargin}
+                stroke="#334155"
+                strokeWidth="1"
+                strokeDasharray="5 6"
+              />
+
+              <text
+                x={getX(index)}
+                y="40"
+                textAnchor="middle"
+                fill="#cbd5e1"
+                fontSize="16"
+                fontWeight="700"
+              >
+                {stage}
+              </text>
+            </g>
+          ))}
+
+          {Array.from({ length: maxRank }).map((_, index) => {
+            const rank = index + 1;
+
+            return (
+              <g key={rank}>
+                <line
+                  x1={leftMargin}
+                  x2={width - rightMargin}
+                  y1={getY(rank)}
+                  y2={getY(rank)}
+                  stroke="#1e293b"
+                  strokeWidth="1"
+                />
+
+                <text
+                  x={leftMargin - 18}
+                  y={getY(rank) + 5}
+                  textAnchor="end"
+                  fill="#94a3b8"
+                  fontSize="13"
+                >
+                  {rank}
+                </text>
+              </g>
+            );
+          })}
+
+          {users.map((user, userIndex) => {
+            const color =
+              colors[userIndex % colors.length];
+
+            const polylinePoints = user.ranks
+              .map(
+                (rank, stageIndex) =>
+                  `${getX(stageIndex)},${getY(rank)}`
+              )
+              .join(" ");
+
+            const lastIndex =
+              stageNames.length - 1;
+
+            return (
+              <g key={user.name}>
+                <polyline
+                  points={polylinePoints}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.88"
+                />
+
+                {user.ranks.map((rank, stageIndex) => (
+                  <circle
+                    key={`${user.name}-${stageIndex}`}
+                    cx={getX(stageIndex)}
+                    cy={getY(rank)}
+                    r="5"
+                    fill={color}
+                    stroke="#0f172a"
+                    strokeWidth="2"
+                  >
+                    <title>
+                      {`${user.name}
+${stageNames[stageIndex]}
+${rank}. sıra
+${user.points[stageIndex]} puan`}
+                    </title>
+                  </circle>
+                ))}
+
+                <text
+                  x={leftMargin - 35}
+                  y={getY(user.ranks[0]) + 5}
+                  textAnchor="end"
+                  fill={color}
+                  fontSize="13"
+                  fontWeight="700"
+                >
+                  {user.name}
+                </text>
+
+                <text
+                  x={width - rightMargin + 20}
+                  y={getY(user.ranks[lastIndex]) + 5}
+                  fill={color}
+                  fontSize="13"
+                  fontWeight="700"
+                >
+                  {`${user.ranks[lastIndex]}. ${user.name}`}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="mt-3 text-xs text-slate-500">
+        Noktaların üzerine gelerek aşama sırası ve puanı görebilirsin.
+      </div>
+    </div>
+  );
+}
+
+
 function Istatistik() {
   const [stats, setStats] = useState({
     zeroMatches: [],
@@ -3066,12 +3281,12 @@ function Istatistik() {
     leastPointMatches: [],
   });
 
+  const [rankHistory, setRankHistory] = useState([]);
+
   useEffect(() => {
     fetchStats();
   }, []);
 
-  const customMatches = JSON.parse(localStorage.getItem("customMatches")) || [];
-  const allMatches = [...matches, ...customMatches];
 
   const fetchAllRows = async (tableName) => {
     let allRows = [];
@@ -3123,6 +3338,195 @@ function Istatistik() {
     return 0;
   };
 
+const buildRankHistory = ({
+  users,
+  matchesData,
+  predictions,
+  scores,
+  odds,
+  groupPredictions,
+  groupOdds,
+  realGroupWinners,
+}) => {
+  const stageNames = [
+    "1.Maçlar",
+    "2.Maçlar",
+    "3.Maçlar",
+    "Grup",
+    "Son 32",
+    "Son 16",
+    "Çeyrek Final",
+    "Yarı Final",
+    "Üçüncülük",
+    "Final",
+  ];
+
+  const normalize = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLocaleLowerCase("tr-TR");
+
+  const getStageIndex = (match) => {
+    if (Number(match.matchday) === 1) return 0;
+    if (Number(match.matchday) === 2) return 1;
+    if (Number(match.matchday) === 3) return 2;
+
+    const stage = normalize(match.stage);
+
+    if (stage === normalize("Son 32")) return 4;
+    if (stage === normalize("Son 16")) return 5;
+    if (stage === normalize("Çeyrek Final")) return 6;
+    if (stage === normalize("Yarı Final")) return 7;
+    if (stage === normalize("Üçüncülük")) return 8;
+    if (stage === normalize("Final")) return 9;
+
+    return -1;
+  };
+
+  const userStagePoints = new Map();
+
+  (users || []).forEach((user) => {
+    userStagePoints.set(
+      String(user.username).trim(),
+      Array(stageNames.length).fill(0)
+    );
+  });
+
+  // Maç puanları
+  (scores || []).forEach((score) => {
+    const matchId = Number(score.match_id);
+
+    const match = (matchesData || []).find(
+      (item) => Number(item.id) === matchId
+    );
+
+    const matchOdd = (odds || []).find(
+      (item) => Number(item.match_id) === matchId
+    );
+
+    if (!match || !matchOdd) return;
+
+    const stageIndex = getStageIndex(match);
+    if (stageIndex < 0) return;
+
+    const homeScore = Number(score.home_score);
+    const awayScore = Number(score.away_score);
+
+    const realMS = getMSResult(homeScore, awayScore);
+    const realOU = getOUResult(homeScore, awayScore);
+
+    (users || []).forEach((user) => {
+      const username = String(user.username).trim();
+
+      const prediction = (predictions || []).find(
+        (item) =>
+          String(item.user_name).trim() === username &&
+          Number(item.match_id) === matchId
+      );
+
+      if (!prediction) return;
+
+      let earnedPoint = 0;
+
+      if (Number(prediction.ms) === realMS) {
+        earnedPoint += getMsOdd(prediction.ms, matchOdd);
+      }
+
+      if (
+        normalize(prediction.ou) ===
+        normalize(realOU)
+      ) {
+        earnedPoint += getOuOdd(prediction.ou, matchOdd);
+      }
+
+      const userPoints = userStagePoints.get(username);
+      userPoints[stageIndex] += earnedPoint;
+    });
+  });
+
+  // Grup liderliği puanları, grup aşamasının sonuna eklenir
+  (realGroupWinners || []).forEach((realGroup) => {
+    (users || []).forEach((user) => {
+      const username = String(user.username).trim();
+
+      const prediction = (groupPredictions || []).find(
+        (item) =>
+          String(item.user_name).trim() === username &&
+          normalize(item.group_name) ===
+            normalize(realGroup.group_name)
+      );
+
+      if (!prediction) return;
+
+      if (
+        normalize(prediction.team_name) !==
+        normalize(realGroup.winner)
+      ) {
+        return;
+      }
+
+      const oddRow = (groupOdds || []).find(
+        (item) =>
+          normalize(item.group_name) ===
+            normalize(realGroup.group_name) &&
+          normalize(item.team_name) ===
+            normalize(prediction.team_name)
+      );
+
+      const userPoints = userStagePoints.get(username);
+      userPoints[3] += Number(oddRow?.odd || 0);
+    });
+  });
+
+  // Her aşamada bir önceki puanları da üzerine ekle
+  const cumulativeUsers = (users || []).map((user) => {
+    const username = String(user.username).trim();
+    const stagePoints = userStagePoints.get(username) || [];
+
+    let runningTotal = 0;
+
+    const cumulativePoints = stagePoints.map((point) => {
+      runningTotal += Number(point || 0);
+      return Number(runningTotal.toFixed(2));
+    });
+
+    return {
+      name: username,
+      points: cumulativePoints,
+      ranks: Array(stageNames.length).fill(0),
+    };
+  });
+
+  // Her aşama için kullanıcıların sırasını hesapla
+  stageNames.forEach((_, stageIndex) => {
+    const sortedAtStage = [...cumulativeUsers].sort((a, b) => {
+      const difference =
+        Number(b.points[stageIndex] || 0) -
+        Number(a.points[stageIndex] || 0);
+
+      if (difference !== 0) return difference;
+
+      return a.name.localeCompare(b.name, "tr");
+    });
+
+    sortedAtStage.forEach((user, index) => {
+      const originalUser = cumulativeUsers.find(
+        (item) => item.name === user.name
+      );
+
+      if (originalUser) {
+        originalUser.ranks[stageIndex] = index + 1;
+      }
+    });
+  });
+
+  return {
+    stageNames,
+    users: cumulativeUsers,
+  };
+};
+
+
   const fetchStats = async () => {
     const predictions = await fetchAllRows("predictions");
 
@@ -3139,8 +3543,35 @@ function Istatistik() {
 
     const cleanPredictions = Array.from(latestPredictionsMap.values());
 
-    const { data: scores } = await supabase.from("match_scores").select("*");
-    const { data: odds } = await supabase.from("match_odds").select("*");
+const { data: users } = await supabase
+  .from("users")
+  .select("*");
+
+const { data: matchesData } = await supabase
+  .from("matches")
+  .select("*");
+
+const { data: scores } = await supabase
+  .from("match_scores")
+  .select("*");
+
+const { data: odds } = await supabase
+  .from("match_odds")
+  .select("*");
+
+const { data: groupPredictions } = await supabase
+  .from("group_predictions")
+  .select("*");
+
+const { data: groupOdds } = await supabase
+  .from("group_odds")
+  .select("*");
+
+const { data: realGroupWinners } = await supabase
+  .from("real_group_winners")
+  .select("*");
+
+const allMatches = matchesData || [];
 
     const zeroMatches = [];
     const noMsMatches = [];
@@ -3231,6 +3662,19 @@ function Istatistik() {
       leastPointMatches.push(matchInfo);
     });
 
+    const historyData = buildRankHistory({
+  users: users || [],
+  matchesData: allMatches,
+  predictions: cleanPredictions,
+  scores: scores || [],
+  odds: odds || [],
+  groupPredictions: groupPredictions || [],
+  groupOdds: groupOdds || [],
+  realGroupWinners: realGroupWinners || [],
+});
+
+setRankHistory(historyData);
+
     setStats({
       zeroMatches,
       noMsMatches,
@@ -3274,11 +3718,13 @@ function Istatistik() {
       </div>
     );
 
-  return (
-    <div className="space-y-5">
-      <h2 className="text-2xl font-bold">İstatistik</h2>
+return (
+  <div className="space-y-5">
+    <h2 className="text-2xl font-bold">İstatistik</h2>
 
-      <StatCard title="Herkesin 0 Aldığı Maçlar 😄">
+    <SiraDegisimGrafigi history={rankHistory} />
+
+    <StatCard title="Herkesin 0 Aldığı Maçlar 😄">
         <MatchList
           items={stats.zeroMatches}
           emptyText="Şimdilik herkesin 0 aldığı maç yok."
