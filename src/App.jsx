@@ -5,6 +5,9 @@ import { groups } from "./data/groups";
 import { allTeams } from "./data/teams";
 import { matches } from "./data/matches";
 
+// Tahmin sistemi açık mı?
+
+
 const turkeyResults = [
   "Son 32'de Elenir",
   "Gruplarda Elenir",
@@ -1308,6 +1311,8 @@ const fetchDbMatches = async () => {
   };
 
   const savePrediction = async (match) => {
+
+
     if (isPredictionClosed(match)) {
       alert("Bu maç için tahmin süresi kapandı.");
       return;
@@ -1952,7 +1957,7 @@ setDbMatches(formattedMatches);
 
 function KatilimciTahminleri() {
   const [tab, setTab] = useState("matches");
-  const [stageFilter, setStageFilter] = useState("Yarı Final");
+  const [stageFilter, setStageFilter] = useState("Final");
   const [matchdayFilter, setMatchdayFilter] = useState(1);
 
   const [allPredictions, setAllPredictions] = useState([]);
@@ -2244,12 +2249,12 @@ const getGroupPredictionClass = (groupName, teamName) => {
   ];
 
 const knockoutFilters = [
+  "Final",
+  "Üçüncülük",
   "Yarı Final",
   "Çeyrek Final",
   "Son 16",
   "Son 32",
-  "Üçüncülük",
-  "Final",
 ];
 
   const matchdayFilters = [
