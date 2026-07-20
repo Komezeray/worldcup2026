@@ -674,8 +674,34 @@ const matchdayTotals = {
   }
 });
 
+// SANAL KULLANICI ŞAMPİYONLUK PUANI
+if (realChampion) {
+  total += 1;
+
+  const championPick = pickOdd(
+    (championOdds || []).map((o) => ({
+      value: o.team_name,
+      odd: o.odd,
+    })),
+    mode,
+    `${name}-CHAMPION`
+  );
+
+  if (
+    championPick &&
+    String(championPick.value).trim().toLocaleLowerCase("tr-TR") ===
+      String(realChampion).trim().toLocaleLowerCase("tr-TR")
+  ) {
+    correct += 1;
+    championPoints += Number(championPick.odd || 0);
+  }
+}
+
+
       const totalPoints =
         matchPoints + groupPoints + championPoints + turkeyPoints;
+
+        
 
       return {
         name,
@@ -936,14 +962,46 @@ const matchdayTotals = {
 if (realChampion) {
   total += 1;
 
-  const userChampionPrediction = (championPredictions || []).find(
-    (p) => String(p.user_name).trim() === String(user.username).trim()
+const normalize = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("tr-TR");
+
+const championPrediction = championPredictions.find(
+  (p) => normalize(p.user_name) === normalize(user.username)
+);
+
+// ŞAMPİYON PUANLARI
+if (realChampion) {
+  total += 1;
+
+  const normalize = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLocaleLowerCase("tr-TR");
+
+  const championPrediction = (championPredictions || []).find(
+    (p) => normalize(p.user_name) === normalize(user.username)
   );
 
   const predictedChampion =
-    userChampionPrediction?.team_name ||
-    userChampionPrediction?.champion ||
-    userChampionPrediction?.winner;
+    championPrediction?.team_name ||
+    championPrediction?.champion ||
+    championPrediction?.winner;
+
+  if (
+    predictedChampion &&
+    normalize(predictedChampion) === normalize(realChampion)
+  ) {
+    correct += 1;
+
+    const oddRow = (championOdds || []).find(
+      (o) => normalize(o.team_name) === normalize(predictedChampion)
+    );
+
+    championPoints += Number(oddRow?.odd || 0);
+  }
+}
 
   if (
     predictedChampion &&
